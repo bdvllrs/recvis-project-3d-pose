@@ -103,7 +103,7 @@ class Trainer:
                     t.update()
                 else:
                     loss, out, loss_mm = self.forward(data_2d, data_3d, type)
-                    loss_mm_mean.append(loss_mm.detach().cpu().numpy())
+                    # loss_mm_mean.append(loss_mm.detach().cpu().numpy())
                 for i in range(loader.batch_size):
                     if k in sample:
                         viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
@@ -124,10 +124,11 @@ class Trainer:
 
             total_loss /= len(loader.dataset) / batch_size
             self.logs["testing_error" if type == "val" else "training_error"].append(total_loss)
+            # if type == "val":
+            #     self.logs["loss_mm"].append(np.mean(loss_mm_mean))
             if type == "val":
-                self.logs["loss_mm"].append(np.mean(loss_mm_mean))
-            if type == "val":
-                print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
+                # print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
+                print('\nValidation set: Average loss:', total_loss, '\n')
             else:
                 print('\nTraining set: Average loss:', total_loss, '\n')
 
@@ -162,12 +163,12 @@ class Trainer:
         out = self.model(data)
         loss = self.criterion(out, target)
         distances = None
-        if type == "val":
-            distances = torch.zeros(loss.shape[0], loss.shape[1] // 3)
-            for i in range(loss.shape[0]):
-                for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
-                    distances[index] = torch.sqrt(loss[i, k:k + 3].sum())
-            distances = distances.mean()
+        # if type == "val":
+        #     distances = torch.zeros(loss.shape[0], loss.shape[1] // 3)
+        #     for i in range(loss.shape[0]):
+        #         for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
+        #             distances[index] = torch.sqrt(loss[i, k:k + 3].sum())
+        #     distances = distances.mean()
         return loss.mean(), out, distances
 
     def plot_learning_curves(self):
