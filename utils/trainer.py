@@ -177,7 +177,7 @@ class Trainer:
                 fig = plt.figure()
                 plt.plot(self.logs['epochs'], self.logs['training_error'], label="Training")
                 plt.plot(self.logs['epochs'], self.logs['testing_error'], label="Testing")
-                plt.plot(self.logs['epochs'], self.logs['loss_mm'], label="Loss mm test")
+                # plt.plot(self.logs['epochs'], self.logs['loss_mm'], label="Loss mm test")
                 plt.title('Learning curves')
                 plt.xlabel("Epochs")
                 plt.ylabel("MSE")
@@ -224,8 +224,8 @@ class Trainer:
 
         for i in np.arange(nsamples):
             key = (keys[0][exidx].item(), keys[1][exidx], keys[2][exidx])
-            target[exidx], prediction[exidx] = self.flatten_to_camera(target[exidx], prediction[exidx],
-                                                                      root_positions[exidx], key)
+            # target[exidx], prediction[exidx] = self.flatten_to_camera(target[exidx], prediction[exidx],
+            #                                                           root_positions[exidx], key)
             # Plot 2d pose
             ax1 = plt.subplot(gs1[subplot_idx - 1])
             p2d = data_2d[exidx, :]

@@ -136,8 +136,9 @@ def transform_world_to_camera(poses_set, cams, joint_names, ncams=4):
 
         for c in range(ncams):
             R, T, f, c, k, p, name = cams[(subj, c + 1)]
-            camera_coord = world_to_camera_frame(np.reshape(t3d_world, [-1, 3]), R, T)
-            camera_coord = np.reshape(camera_coord, [-1, len(joint_names) * 3])
+            # camera_coord = world_to_camera_frame(np.reshape(t3d_world, [-1, 3]), R, T)
+            # camera_coord = np.reshape(camera_coord, [-1, len(joint_names) * 3])
+            camera_coord = t3d_world
 
             sname = seqname[:-3] + "." + name + ".h5"  # e.g.: Waiting 1.58860488.h5
             t3d_camera[(subj, action, sname)] = camera_coord
