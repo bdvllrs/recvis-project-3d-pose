@@ -165,26 +165,21 @@ def postprocess_3d(poses_set):
     return poses_set, root_positions
 
 
-def get_array(poses, targets, root_positions):
-    stack_poses, stack_targets, stack_root_positions = [], [], []
-    keys = []
+def get_array(poses):
+    action_to_keys = {}
+    total_length = 0
     for key in sorted(poses.keys()):
+        total_length += poses[key].shape[0]
         for k in range(poses[key].shape[0]):
-            stack_poses.append(poses[key][k])
-            stack_targets.append(targets[key][k])
-            stack_root_positions.append(root_positions[key][k])
-            keys.append(key)
-    stack_poses = np.stack(stack_poses, axis=0)
-    stack_targets = np.stack(stack_targets, axis=0)
-    stack_root_positions = np.stack(stack_root_positions, axis=0)
-    return (stack_poses,
-            stack_targets,
-            stack_root_positions,
-            keys)
+            subj, action, seqname = key
+            if action not in action_to_keys.keys():
+                action_to_keys[action] = []
+            action_to_keys[action].append((key, k))
+    return action_to_keys, total_length
 
 
 class Human36M:
-    def __init__(self, path, train_subjects=None, test_subjects=None, actions=None):
+    def __init__(self, path, train_subjects=None, test_subjects=None, actions=None, shuffle_train_set=True):
         self.train_subjects = train_subjects if train_subjects is not None else TRAIN_SUBJECTS
         self.test_subjects = test_subjects if test_subjects is not None else TEST_SUBJECTS
         self.actions = actions if actions is not None else ACTIONS
@@ -201,8 +196,8 @@ class Human36M:
         print("Loading 3D...")
         (output_train, output_test, self.data_mean_3d, self.data_std_3d, self.dim_to_ignore_3d, self.dim_to_use_3d,
          train_root_positions, test_root_positions) = self.get_3d(camera_frame=True)
-        self.train_set = Dataset(input_train, output_train, train_root_positions)
-        self.test_set = Dataset(input_test, output_test, test_root_positions)
+        self.train_set = Dataset(input_train, output_train, train_root_positions, shuffle=shuffle_train_set)
+        self.test_set = Dataset(input_test, output_test, test_root_positions, shuffle=False)
         print("Loaded.")
 
     def load_joints(self, subjects=None, actions=None):
@@ -316,11 +311,30 @@ class Human36M:
 
 
 class Dataset:
-    def __init__(self, data, targets, root_positions):
-        self.data, self.targets, self.root_positions, self.keys = get_array(data, targets, root_positions)
+    def __init__(self, data, targets, root_positions, shuffle=True):
+        self.action_to_keys, self.length = get_array(data)
+        self.data = data
+        self.targets = targets
+        self.root_positions = root_positions
+
+        if shuffle:
+            for action in self.action_to_keys.keys():
+                np.random.shuffle(self.action_to_keys[action])
 
     def __len__(self):
-        return self.data.shape[0]
+        return self.length
+
+    def item_to_key(self, item):
+        for action in sorted(self.action_to_keys.keys()):
+            if item < len(self.action_to_keys[action]):
+                return self.action_to_keys[action][item]
+            item -= len(self.action_to_keys[action])
+        # cycle
+        return self.item_to_key(item)
 
     def __getitem__(self, item):
-        return torch.tensor(self.data[item]), torch.tensor(self.targets[item]), torch.tensor(self.root_positions[item]), self.keys[item]
+        key, k = self.item_to_key(item)
+        return (torch.tensor(self.data[key][k]),
+                torch.tensor(self.targets[key][k]),
+                torch.tensor(self.root_positions[key][k]),
+                key)

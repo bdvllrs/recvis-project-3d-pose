@@ -18,12 +18,12 @@ class LinearBlock(torch.nn.Module):
         self.net = torch.nn.Sequential(
             fc1,
             torch.nn.BatchNorm1d(hidden_size),
-            torch.nn.ReLU(),
             torch.nn.Dropout(dropout),
+            torch.nn.ReLU(),
             fc2,
             torch.nn.BatchNorm1d(hidden_size),
-            torch.nn.ReLU(),
             torch.nn.Dropout(dropout),
+            torch.nn.ReLU()
         )
 
     def forward(self, batch):
@@ -41,8 +41,8 @@ class Linear(torch.nn.Module):
             torch.nn.BatchNorm1d(hidden_size),
             *linear_blocks,
             torch.nn.Linear(hidden_size, output_size),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(dropout)
+            torch.nn.Dropout(dropout),
+            torch.nn.ReLU()
         )
 
     def forward(self, batch):

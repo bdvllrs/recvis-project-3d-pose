@@ -67,47 +67,43 @@ class Trainer:
         return self
 
     def step_train(self, epoch):
-        train_loss = 0
-        batch_size = self.train_loader.batch_size
-        with tqdm(total=len(self.train_loader.dataset) / self.train_loader.batch_size) as t:
-            for batch_id, data in enumerate(self.train_loader):
-                self.glob_step += 1
-                if self.glob_step % self.lr_decay == 0 or self.glob_step == 1:
-                    self.lr_now = lr_decay(self.optimizer, self.glob_step, self.lr_now, self.lr_decay, self.lr_gamma)
-                data_2d, data_3d, root_position, keys = data
-                data_2d, data_3d = data_2d.to(self.device, torch.float), data_3d.to(self.device, torch.float)
-                root_position = root_position.to(self.device, torch.float)
-                self.optimizer.zero_grad()
-                loss, _ = self.forward(data_2d, data_3d)
-                train_loss += loss.data.item()
-                loss.backward()
-                # Clip grad
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
-                self.optimizer.step()
-                if batch_id % self.log_every == 0:
-                    t.set_description("Train - Epoch " + str(epoch))
-                    t.set_postfix_str("Loss: " + str(loss.data.item()))
-                t.update()
-        train_loss /= len(self.train_loader.dataset) / batch_size
-        self.logs["training_error"].append(train_loss)
-        print('\nTraining set: Average loss: {:.4f}\n'.format(train_loss))
+        self.model.train()
+        self.step(self.train_loader, epoch, "train")
 
     def step_val(self, epoch):
-        validation_loss = 0
-        batch_size = self.val_loader.batch_size
-        sample = np.arange(len(self.val_loader.dataset))
+        self.model.eval()
+        self.step(self.val_loader, epoch, "val")
+
+    def step(self, loader, epoch, type):
+        total_loss = 0
+        batch_size = loader.batch_size
+        sample = np.arange(len(loader.dataset))
         np.random.shuffle(sample)
         sample = sample[:15]
         viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions = [], [], [], []
         viz_keys = [], [], []
         k = 0
-        with tqdm(total=len(self.val_loader.dataset) / self.val_loader.batch_size) as t:
-            for batch_id, data in enumerate(self.val_loader):
+        loss_mm_mean = []
+        with tqdm(total=len(loader.dataset) / loader.batch_size) as t:
+            for batch_id, data in enumerate(loader):
                 data_2d, data_3d, root_position, keys = data
                 data_2d, data_3d = data_2d.to(self.device, torch.float), data_3d.to(self.device, torch.float)
                 root_position = root_position.to(self.device, torch.float)
-                loss, out = self.forward(data_2d, data_3d)
-                for i in range(self.val_loader.batch_size):
+                if type == "train":
+                    self.optimizer.zero_grad()
+                    loss, out, loss_mm = self.forward(data_2d, data_3d, type)
+                    loss.backward()
+                    # Clip grad
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                    self.optimizer.step()
+                    if batch_id % self.log_every == 0:
+                        t.set_description("Train - Epoch " + str(epoch))
+                        t.set_postfix_str("Loss: " + str(loss.data.item()))
+                    t.update()
+                else:
+                    loss, out, loss_mm = self.forward(data_2d, data_3d, type)
+                    loss_mm_mean.append(loss_mm)
+                for i in range(loader.batch_size):
                     if k in sample:
                         viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
                         viz_samples_pred.append(out.detach().cpu().numpy()[i])
@@ -117,23 +113,27 @@ class Trainer:
                         viz_keys[1].append(keys[1][i])
                         viz_keys[2].append(keys[2][i])
                     k += 1
-                validation_loss += loss.data.item()
+                total_loss += loss.data.item()
                 # get the index of the max log-probability
                 if batch_id % self.log_every == 0:
-                    t.set_description("Val - Epoch " + str(epoch))
+                    text = "Val - Epoch" if type == "val" else "Train - Epoch"
+                    t.set_description(text + str(epoch))
                     t.set_postfix_str("Loss: " + str(loss.data.item()))
                 t.update()
 
-            validation_loss /= len(self.val_loader.dataset) / batch_size
-            self.logs["testing_error"].append(validation_loss)
-            print('\nValidation set: Average loss: {:.4f}\n'.format(validation_loss))
+            total_loss /= len(loader.dataset) / batch_size
+            self.logs["testing_error" if type == "val" else "training_error"].append(total_loss)
+            if type == "val":
+                self.logs["loss_mm"].append(np.mean(loss_mm_mean))
+            text = "Validation" if type == "val" else "Training"
+            print('\n' + text + ' set: Average loss: {:.4f}\n'.format(total_loss))
 
             viz_samples_2d = np.array(viz_samples_2d)
             viz_samples_pred = np.array(viz_samples_pred)
             viz_samples_true = np.array(viz_samples_true)
             viz_root_positions = np.array(viz_root_positions)
 
-            self.visualize(viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions, viz_keys)
+            self.visualize(viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions, viz_keys, type)
             self.plot_learning_curves()
 
     def train(self, n_epochs: int):
@@ -155,28 +155,33 @@ class Trainer:
                 torch.save(self.model.state_dict(), model_file)
             print('\nSaved models in ' + self.path + '.')
 
-    def forward(self, data, target):
+    def forward(self, data, target, type):
         out = self.model(data)
         loss = self.criterion(out, target)
-        # distances = torch.zeros(loss.shape[0], loss.shape[1] // 3)
-        # for i in range(loss.shape[0]):
-        #     for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
-        #         distances[index] = torch.sqrt(loss[i, k:k + 3].sum())
-        return loss.mean(), out
+        distances = None
+        if type == "val":
+            distances = torch.zeros(loss.shape[0], loss.shape[1] // 3)
+            for i in range(loss.shape[0]):
+                for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
+                    distances[index] = torch.sqrt(loss[i, k:k + 3].sum())
+            distances = distances.mean()
+        return loss.mean(), out, distances
 
     def plot_learning_curves(self):
-        if self.plot_logs:
-            fig = plt.figure()
-            plt.plot(self.logs['epochs'], self.logs['training_error'], label="Training")
-            plt.plot(self.logs['epochs'], self.logs['testing_error'], label="Testing")
-            plt.title('Learning curves')
-            plt.xlabel("Epochs")
-            plt.ylabel("MSE")
-            plt.legend()
-            plt.show()
-        else:
-            with open(self.path + "/logs/log.pkl", 'wb') as f:
-                pickle.dump(self.logs, f)
+        if len(self.logs['training_error']) == len(self.logs['testing_error']):
+            if self.plot_logs:
+                fig = plt.figure()
+                plt.plot(self.logs['epochs'], self.logs['training_error'], label="Training")
+                plt.plot(self.logs['epochs'], self.logs['testing_error'], label="Testing")
+                plt.plot(self.logs['epochs'], self.logs['loss_mm'], label="Loss mm test")
+                plt.title('Learning curves')
+                plt.xlabel("Epochs")
+                plt.ylabel("MSE")
+                plt.legend()
+                plt.show()
+            else:
+                with open(self.path + "/logs/log.pkl", 'wb') as f:
+                    pickle.dump(self.logs, f)
 
     def unormalize_2d_data(self, batch):
         return data.un_normalize_data(batch, self.human_dataset.data_mean_2d,
@@ -186,7 +191,7 @@ class Trainer:
         return data.un_normalize_data(batch, self.human_dataset.data_mean_3d,
                                       self.human_dataset.data_std_3d, self.human_dataset.dim_to_ignore_3d)
 
-    def visualize(self, data_2d, prediction, target, root_positions, keys):
+    def visualize(self, data_2d, prediction, target, root_positions, keys, type):
         """
         Plots the result
         Adapted from https://github.com/una-dinosauria/3d-pose-baseline/blob/master/src/predict_3dpose.py
@@ -236,7 +241,7 @@ class Trainer:
             exidx = exidx + 1
             subplot_idx = subplot_idx + 3
 
-        plt.savefig(self.path + "/logs/poses_" + str(self.current_epoch) + ".eps", type="eps", dpi=1000)
+        plt.savefig(self.path + "/logs/poses_" + type + "_" + str(self.current_epoch) + ".eps", type="eps", dpi=1000)
         if self.plot_logs:
             plt.show()
 
