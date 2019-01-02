@@ -10,6 +10,7 @@ import pickle
 
 import torch
 
+plt.switch_backend('agg')
 __all__ = ['Trainer']
 
 
@@ -42,6 +43,7 @@ class Trainer:
         self.train_loader = train_loader
         self.device = torch.device("cpu")
         self.human_dataset = human_dataset
+        self.criterion = torch.nn.MSELoss(reduction='mean')
 
         self.plot_logs = False
 
@@ -154,8 +156,7 @@ class Trainer:
 
     def forward(self, data, target):
         out = self.model(data)
-        criterion = torch.nn.MSELoss(reduction='elementwise_mean')
-        loss = criterion(out, target)
+        loss = self.criterion(out, target)
         return loss, out
 
     def plot_learning_curves(self):
