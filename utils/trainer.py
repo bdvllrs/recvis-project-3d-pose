@@ -42,7 +42,7 @@ class Trainer:
         self.train_loader = train_loader
         self.device = torch.device("cpu")
         self.human_dataset = human_dataset
-        self.criterion = torch.nn.MSELoss(reduction='elementwise_mean')
+        self.criterion = torch.nn.MSELoss(reduction='none')
 
         self.plot_logs = True
         if not self.plot_logs:
@@ -72,8 +72,8 @@ class Trainer:
         with tqdm(total=len(self.train_loader.dataset) / self.train_loader.batch_size) as t:
             for batch_id, data in enumerate(self.train_loader):
                 self.glob_step += 1
-                if self.glob_step % self.lr_decay == 0 or self.glob_step == 1:
-                    self.lr_now = lr_decay(self.optimizer, self.glob_step, self.lr_now, self.lr_decay, self.lr_gamma)
+                # if self.glob_step % self.lr_decay == 0 or self.glob_step == 1:
+                #     self.lr_now = lr_decay(self.optimizer, self.glob_step, self.lr_now, self.lr_decay, self.lr_gamma)
                 data_2d, data_3d, root_position, keys = data
                 data_2d, data_3d = data_2d.to(self.device, torch.float), data_3d.to(self.device, torch.float)
                 root_position = root_position.to(self.device, torch.float)
@@ -158,7 +158,11 @@ class Trainer:
     def forward(self, data, target):
         out = self.model(data)
         loss = self.criterion(out, target)
-        return loss, out
+        # distances = torch.zeros(loss.shape[0], loss.shape[1] // 3)
+        # for i in range(loss.shape[0]):
+        #     for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
+        #         distances[index] = torch.sqrt(loss[i, k:k + 3].sum())
+        return loss.mean(), out
 
     def plot_learning_curves(self):
         if self.plot_logs:
