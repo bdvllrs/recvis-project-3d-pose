@@ -51,7 +51,8 @@ class Trainer:
         self.logs = {
             "training_error": [],
             "testing_error": [],
-            "epochs": []
+            "epochs": [],
+            "loss_mm": []
         }
 
         self.glob_step = 0
@@ -102,7 +103,7 @@ class Trainer:
                     t.update()
                 else:
                     loss, out, loss_mm = self.forward(data_2d, data_3d, type)
-                    loss_mm_mean.append(loss_mm)
+                    loss_mm_mean.append(loss_mm.detach().cpu().numpy())
                 for i in range(loader.batch_size):
                     if k in sample:
                         viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
@@ -125,8 +126,10 @@ class Trainer:
             self.logs["testing_error" if type == "val" else "training_error"].append(total_loss)
             if type == "val":
                 self.logs["loss_mm"].append(np.mean(loss_mm_mean))
-            text = "Validation" if type == "val" else "Training"
-            print('\n' + text + ' set: Average loss: {:.4f}\n'.format(total_loss))
+            if type == "val":
+                print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
+            else:
+                print('\nTraining set: Average loss:', total_loss, '\n')
 
             viz_samples_2d = np.array(viz_samples_2d)
             viz_samples_pred = np.array(viz_samples_pred)

@@ -165,17 +165,27 @@ def postprocess_3d(poses_set):
     return poses_set, root_positions
 
 
-def get_array(poses):
+def get_array(poses, targets, root_positions):
+    stack_poses, stack_targets, stack_root_positions = [], [], []
+    keys = []
     action_to_keys = {}
-    total_length = 0
     for key in sorted(poses.keys()):
-        total_length += poses[key].shape[0]
+        subj, action, seqname = key
         for k in range(poses[key].shape[0]):
-            subj, action, seqname = key
+            stack_poses.append(poses[key][k])
+            stack_targets.append(targets[key][k])
+            stack_root_positions.append(root_positions[key][k])
             if action not in action_to_keys.keys():
                 action_to_keys[action] = []
-            action_to_keys[action].append((key, k))
-    return action_to_keys, total_length
+            action_to_keys[action].append(len(stack_poses) - 1)
+            keys.append(key)
+    stack_poses = np.stack(stack_poses, axis=0)
+    stack_targets = np.stack(stack_targets, axis=0)
+    stack_root_positions = np.stack(stack_root_positions, axis=0)
+    return (stack_poses,
+            stack_targets,
+            stack_root_positions,
+            action_to_keys, keys)
 
 
 class Human36M:
@@ -312,17 +322,15 @@ class Human36M:
 
 class Dataset:
     def __init__(self, data, targets, root_positions, shuffle=True):
-        self.action_to_keys, self.length = get_array(data)
-        self.data = data
-        self.targets = targets
-        self.root_positions = root_positions
+        self.data, self.targets, self.root_positions, self.action_to_keys, self.keys = get_array(data, targets,
+                                                                                                 root_positions)
 
         if shuffle:
             for action in self.action_to_keys.keys():
                 np.random.shuffle(self.action_to_keys[action])
 
     def __len__(self):
-        return self.length
+        return self.data.shape[0]
 
     def item_to_key(self, item):
         for action in sorted(self.action_to_keys.keys()):
@@ -333,8 +341,8 @@ class Dataset:
         return self.item_to_key(item)
 
     def __getitem__(self, item):
-        key, k = self.item_to_key(item)
-        return (torch.tensor(self.data[key][k]),
-                torch.tensor(self.targets[key][k]),
-                torch.tensor(self.root_positions[key][k]),
-                key)
+        k = self.item_to_key(item)
+        return (torch.tensor(self.data[k]),
+                torch.tensor(self.targets[k]),
+                torch.tensor(self.root_positions[k]),
+                self.keys[k])
