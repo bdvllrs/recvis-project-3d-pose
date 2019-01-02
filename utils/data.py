@@ -169,16 +169,17 @@ def get_array(poses, targets, root_positions):
     stack_poses, stack_targets, stack_root_positions = [], [], []
     keys = []
     for key in sorted(poses.keys()):
-        stack_poses.append(poses[key])
-        stack_targets.append(targets[key])
-        stack_root_positions.append(root_positions[key])
-        keys.extend([key] * poses[key].shape[0])
+        for k in range(poses[key].shape[0]):
+            stack_poses.append(poses[key][k])
+            stack_targets.append(targets[key][k])
+            stack_root_positions.append(root_positions[key][k])
+            keys.append(key)
     stack_poses = np.stack(stack_poses, axis=0)
     stack_targets = np.stack(stack_targets, axis=0)
     stack_root_positions = np.stack(stack_root_positions, axis=0)
-    return (stack_poses.reshape((-1, stack_poses.shape[2])),
-            stack_targets.reshape((-1, stack_targets.shape[2])),
-            stack_root_positions.reshape((-1, stack_root_positions.shape[2])),
+    return (stack_poses,
+            stack_targets,
+            stack_root_positions,
             keys)
 
 
@@ -221,7 +222,7 @@ class Human36M:
                 for filename in file_names:
                     with h5py.File(os.path.join(path, filename), 'r') as file:
                         total_len += file['3D_positions'].shape[1]
-                        poses[(subject, action, filename)] = file['3D_positions'][:, :500].T
+                        poses[(subject, action, filename)] = file['3D_positions'][:, :].T
         return poses
 
     def load_cameras(self):

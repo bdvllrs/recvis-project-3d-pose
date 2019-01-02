@@ -15,7 +15,7 @@ device_type = "cuda" if torch.cuda.is_available() else "cpu"
 print('Using', device_type)
 device = torch.device(device_type)
 
-dataset = Human36M('../Datasets/h36m/')
+dataset = Human36M('../dataset/h36m/')
 
 train_set = torch.utils.data.DataLoader(dataset.train_set, batch_size=config.batch_size, shuffle=True)
 test_set = torch.utils.data.DataLoader(dataset.test_set, batch_size=config.batch_size)
