@@ -6,6 +6,7 @@ from utils import data
 from utils import cameras
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle
 
 import torch
 
@@ -33,6 +34,7 @@ class Trainer:
             save_folder: folder to save the learned models
         """
         self.save_folder = save_folder
+        self.path = None
         self.log_every = log_every
         self.model = model
         self.optimizer = optimizer
@@ -40,6 +42,8 @@ class Trainer:
         self.train_loader = train_loader
         self.device = torch.device("cpu")
         self.human_dataset = human_dataset
+
+        self.plot_logs = False
 
         self.logs = {
             "training_error": [],
@@ -53,12 +57,13 @@ class Trainer:
         self.lr_decay = 100000
         self.lr_gamma = 0.96
 
+        self.current_epoch = 0
+
     def to(self, device):
         self.device = device
         return self
 
     def step_train(self, epoch):
-        self.model.train()
         train_loss = 0
         batch_size = self.train_loader.batch_size
         with tqdm(total=len(self.train_loader.dataset) / self.train_loader.batch_size) as t:
@@ -85,8 +90,6 @@ class Trainer:
         print('\nTraining set: Average loss: {:.4f}\n'.format(train_loss))
 
     def step_val(self, epoch):
-        self.model.eval()
-
         validation_loss = 0
         batch_size = self.val_loader.batch_size
         sample = np.arange(len(self.val_loader.dataset))
@@ -135,17 +138,19 @@ class Trainer:
         Args:
             n_epochs: Number of epochs
         """
-        if self.save_folder is not None:
-            path = self.save_folder + '/' + datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-            os.mkdir(path)
+        if self.save_folder is not None and self.path is None:
+            self.path = self.save_folder + '/' + datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+            os.mkdir(self.path)
+            os.mkdir(self.path + "/logs")
         for epoch in range(1, n_epochs + 1):
+            self.current_epoch = epoch
             self.logs["epochs"].append(epoch)
             self.step_train(epoch)
             self.step_val(epoch)
             if self.save_folder is not None:
-                model_file = path + '/model.pth'
+                model_file = self.path + '/model.pth'
                 torch.save(self.model.state_dict(), model_file)
-            print('\nSaved models in ' + path + '.')
+            print('\nSaved models in ' + self.path + '.')
 
     def forward(self, data, target):
         out = self.model(data)
@@ -154,14 +159,18 @@ class Trainer:
         return loss, out
 
     def plot_learning_curves(self):
-        fig = plt.figure()
-        plt.plot(self.logs['epochs'], self.logs['training_error'], label="Training")
-        plt.plot(self.logs['epochs'], self.logs['testing_error'], label="Testing")
-        plt.title('Learning curves')
-        plt.xlabel("Epochs")
-        plt.ylabel("MSE")
-        plt.legend()
-        plt.show()
+        if self.plot_logs:
+            fig = plt.figure()
+            plt.plot(self.logs['epochs'], self.logs['training_error'], label="Training")
+            plt.plot(self.logs['epochs'], self.logs['testing_error'], label="Testing")
+            plt.title('Learning curves')
+            plt.xlabel("Epochs")
+            plt.ylabel("MSE")
+            plt.legend()
+            plt.show()
+        else:
+            with open(self.path + "/logs/log.pkl", 'wb') as f:
+                pickle.dump(self.logs, f)
 
     def unormalize_2d_data(self, batch):
         return data.un_normalize_data(batch, self.human_dataset.data_mean_2d,
@@ -221,7 +230,9 @@ class Trainer:
             exidx = exidx + 1
             subplot_idx = subplot_idx + 3
 
-        plt.show()
+        plt.savefig(self.path + "/logs/poses_" + str(self.current_epoch) + ".eps", type="eps", dpi=1000)
+        if self.plot_logs:
+            plt.show()
 
     def flatten_to_camera(self, target, prediction, root_positions, keys):
         N_CAMERAS = 4

@@ -12,8 +12,8 @@ class LinearBlock(torch.nn.Module):
         fc1 = torch.nn.Linear(hidden_size, hidden_size)
         fc2 = torch.nn.Linear(hidden_size, hidden_size)
 
-        # torch.nn.init.kaiming_normal_(fc1.weight)
-        # torch.nn.init.kaiming_normal_(fc2.weight)
+        torch.nn.init.kaiming_normal_(fc1.weight)
+        torch.nn.init.kaiming_normal_(fc2.weight)
 
         self.net = torch.nn.Sequential(
             fc1,
