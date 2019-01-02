@@ -4,6 +4,8 @@ from utils.data import Human36M
 from utils import Config
 from utils.models import Linear
 from utils.trainer import Trainer
+from tqdm import tqdm
+import numpy as np
 
 config = Config()
 config.set("batch_size", 64, "Batch Size")
@@ -15,12 +17,13 @@ device = torch.device(device_type)
 
 dataset = Human36M('../Datasets/h36m/')
 
-train_set = torch.utils.data.DataLoader(dataset.train_set, batch_size=config.batch_size)
+train_set = torch.utils.data.DataLoader(dataset.train_set, batch_size=config.batch_size, shuffle=True)
 test_set = torch.utils.data.DataLoader(dataset.test_set, batch_size=config.batch_size)
 
 model = Linear(input_size=32, hidden_size=1024, output_size=48).to(device)
 
 optimizer = torch.optim.Adam(model.parameters())
+
 
 trainer = Trainer(train_set, test_set, optimizer, model, dataset, save_folder='builds').to(device)
 

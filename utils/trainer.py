@@ -10,7 +10,6 @@ import pickle
 
 import torch
 
-plt.switch_backend('agg')
 __all__ = ['Trainer']
 
 
@@ -43,9 +42,11 @@ class Trainer:
         self.train_loader = train_loader
         self.device = torch.device("cpu")
         self.human_dataset = human_dataset
-        self.criterion = torch.nn.MSELoss(reduction='mean')
+        self.criterion = torch.nn.MSELoss(reduction='elementwise_mean')
 
-        self.plot_logs = False
+        self.plot_logs = True
+        if not self.plot_logs:
+            plt.switch_backend('agg')
 
         self.logs = {
             "training_error": [],
