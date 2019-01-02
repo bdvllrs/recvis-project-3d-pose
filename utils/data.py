@@ -192,14 +192,18 @@ class Human36M:
         self.file_path = os.path.abspath(os.path.join(os.curdir, path))
         self.camera_path = os.path.abspath(os.path.join(os.curdir, path, 'cameras.h5'))
 
+        print("Loading data...")
         self.train_poses = self.load_joints(self.train_subjects, self.actions)
         self.test_poses = self.load_joints(self.test_subjects, self.actions)
         self.cameras = self.load_cameras()
+        print("Loading 2D...")
         input_train, input_test, self.data_mean_2d, self.data_std_2d, self.dim_to_ignore_2d, self.dim_to_use_2d = self.get_2d()
+        print("Loading 3D...")
         (output_train, output_test, self.data_mean_3d, self.data_std_3d, self.dim_to_ignore_3d, self.dim_to_use_3d,
          train_root_positions, test_root_positions) = self.get_3d(camera_frame=True)
         self.train_set = Dataset(input_train, output_train, train_root_positions)
         self.test_set = Dataset(input_test, output_test, test_root_positions)
+        print("Loaded.")
 
     def load_joints(self, subjects=None, actions=None):
         """

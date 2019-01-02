@@ -44,7 +44,7 @@ class Trainer:
         self.human_dataset = human_dataset
         self.criterion = torch.nn.MSELoss(reduction='none')
 
-        self.plot_logs = True
+        self.plot_logs = False
         if not self.plot_logs:
             plt.switch_backend('agg')
 
@@ -72,8 +72,8 @@ class Trainer:
         with tqdm(total=len(self.train_loader.dataset) / self.train_loader.batch_size) as t:
             for batch_id, data in enumerate(self.train_loader):
                 self.glob_step += 1
-                # if self.glob_step % self.lr_decay == 0 or self.glob_step == 1:
-                #     self.lr_now = lr_decay(self.optimizer, self.glob_step, self.lr_now, self.lr_decay, self.lr_gamma)
+                if self.glob_step % self.lr_decay == 0 or self.glob_step == 1:
+                    self.lr_now = lr_decay(self.optimizer, self.glob_step, self.lr_now, self.lr_decay, self.lr_gamma)
                 data_2d, data_3d, root_position, keys = data
                 data_2d, data_3d = data_2d.to(self.device, torch.float), data_3d.to(self.device, torch.float)
                 root_position = root_position.to(self.device, torch.float)
