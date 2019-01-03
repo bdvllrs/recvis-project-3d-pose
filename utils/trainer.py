@@ -22,7 +22,7 @@ def lr_decay(optimizer, step, lr, decay_step, gamma):
 
 class Trainer:
     def __init__(self, train_loader, val_loader, optimizer, model, human_dataset, log_every: int = 50,
-                 save_folder: str = None):
+                 save_folder: str = None, plot_logs=True):
         """
         Trainer class
         Args:
@@ -44,9 +44,14 @@ class Trainer:
         self.human_dataset = human_dataset
         self.criterion = torch.nn.MSELoss(reduction='none')
 
-        self.plot_logs = False
+        print(self.model)
+
+        self.plot_logs = plot_logs
         if not self.plot_logs:
             plt.switch_backend('agg')
+        else:
+            plt.ion()
+            plt.show()
 
         self.logs = {
             "training_error": [],
@@ -92,7 +97,7 @@ class Trainer:
                 root_position = root_position.to(self.device, torch.float)
                 if type == "train":
                     self.optimizer.zero_grad()
-                    loss, out, loss_mm = self.forward(data_2d, data_3d, type)
+                    loss, out = self.forward(data_2d, data_3d)
                     loss.backward()
                     # Clip grad
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
@@ -100,10 +105,10 @@ class Trainer:
                     if batch_id % self.log_every == 0:
                         t.set_description("Train - Epoch " + str(epoch))
                         t.set_postfix_str("Loss: " + str(loss.data.item()))
-                    t.update()
                 else:
-                    loss, out, loss_mm = self.forward(data_2d, data_3d, type)
-                    # loss_mm_mean.append(loss_mm.detach().cpu().numpy())
+                    loss, out = self.forward(data_2d, data_3d)
+                    loss_mm = self.compute_mm_loss(out.detach().cpu().numpy(), data_3d.detach().cpu().numpy())
+                    loss_mm_mean.append(loss_mm)
                 for i in range(loader.batch_size):
                     if k in sample:
                         viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
@@ -124,11 +129,11 @@ class Trainer:
 
             total_loss /= len(loader.dataset) / batch_size
             self.logs["testing_error" if type == "val" else "training_error"].append(total_loss)
-            # if type == "val":
-            #     self.logs["loss_mm"].append(np.mean(loss_mm_mean))
             if type == "val":
-                # print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
-                print('\nValidation set: Average loss:', total_loss, '\n')
+                loss_mm_mean = np.stack(loss_mm_mean)
+                self.logs["loss_mm"].append(loss_mm_mean.mean())
+                print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
+                # print('\nValidation set: Average loss:', total_loss, '\n')
             else:
                 print('\nTraining set: Average loss:', total_loss, '\n')
 
@@ -159,30 +164,35 @@ class Trainer:
                 torch.save(self.model.state_dict(), model_file)
             print('\nSaved models in ' + self.path + '.')
 
-    def forward(self, data, target, type):
+    def forward(self, data, target):
         out = self.model(data)
         loss = self.criterion(out, target)
-        distances = None
-        # if type == "val":
-        #     distances = torch.zeros(loss.shape[0], loss.shape[1] // 3)
-        #     for i in range(loss.shape[0]):
-        #         for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
-        #             distances[index] = torch.sqrt(loss[i, k:k + 3].sum())
-        #     distances = distances.mean()
-        return loss.mean(), out, distances
+        return loss.mean(), out
+
+    def compute_mm_loss(self, prediction, target):
+        target = self.unormalize_3d_data(target)
+        prediction = self.unormalize_3d_data(prediction)
+        loss = (target - prediction) ** 2
+        distances = np.zeros((loss.shape[0], loss.shape[1] // 3))
+        for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
+            distances[:, index] = np.sqrt(loss[:, k:k+3].sum(axis=1))
+        return distances
 
     def plot_learning_curves(self):
         if len(self.logs['training_error']) == len(self.logs['testing_error']):
             if self.plot_logs:
-                fig = plt.figure()
-                plt.plot(self.logs['epochs'], self.logs['training_error'], label="Training")
-                plt.plot(self.logs['epochs'], self.logs['testing_error'], label="Testing")
-                # plt.plot(self.logs['epochs'], self.logs['loss_mm'], label="Loss mm test")
+                fig = plt.figure(0)
+                plt.plot(self.logs['epochs'], self.logs['training_error'], "-b")
+                plt.plot(self.logs['epochs'], self.logs['testing_error'], "-r")
                 plt.title('Learning curves')
                 plt.xlabel("Epochs")
                 plt.ylabel("MSE")
-                plt.legend()
-                plt.show()
+                plt.legend(["Training", "Testing"])
+                fig = plt.figure(3)
+                plt.plot(self.logs['epochs'], self.logs['loss_mm'], "-g")
+                plt.title("Loss mm")
+                plt.draw()
+                plt.pause(0.001)
             else:
                 with open(self.path + "/logs/log.pkl", 'wb') as f:
                     pickle.dump(self.logs, f)
@@ -209,45 +219,46 @@ class Trainer:
         import matplotlib.gridspec as gridspec
 
         # 1080p	= 1,920 x 1,080
-        fig = plt.figure(figsize=(19.2, 10.8))
+        fig = plt.figure(1 if type == "train" else 2, figsize=(19.2, 10.8))
+        fig.suptitle(("Train" if type == "train" else "Validation") + " poses")
 
         gs1 = gridspec.GridSpec(5, 9)  # 5 rows, 9 columns
         gs1.update(wspace=-0.00, hspace=0.05)  # set the spacing between axes.
         plt.axis('off')
 
         subplot_idx, exidx = 1, 0
-        nsamples = len(data_2d)
+        nsamples = data_2d.shape[0]
 
         data_2d = self.unormalize_2d_data(data_2d)
         target = self.unormalize_3d_data(target)
         prediction = self.unormalize_3d_data(prediction)
 
-        for i in np.arange(nsamples):
-            key = (keys[0][exidx].item(), keys[1][exidx], keys[2][exidx])
-            # target[exidx], prediction[exidx] = self.flatten_to_camera(target[exidx], prediction[exidx],
-            #                                                           root_positions[exidx], key)
+        for i in range(nsamples):
+            key = (keys[0][i].item(), keys[1][i], keys[2][i])
+            target[i], prediction[i] = self.flatten_to_camera(target[i], prediction[i],
+                                                              root_positions[i], key)
             # Plot 2d pose
             ax1 = plt.subplot(gs1[subplot_idx - 1])
-            p2d = data_2d[exidx, :]
+            p2d = data_2d[i, :]
             viz.show2Dpose(p2d, ax1)
             ax1.invert_yaxis()
 
             # Plot 3d gt
             ax2 = plt.subplot(gs1[subplot_idx], projection='3d')
-            p3d = target[exidx, :]
+            p3d = target[i, :]
             viz.show3Dpose(p3d, ax2)
 
             # Plot 3d predictions
             ax3 = plt.subplot(gs1[subplot_idx + 1], projection='3d')
-            p3d = prediction[exidx, :]
+            p3d = prediction[i, :]
             viz.show3Dpose(p3d, ax3, lcolor="#9b59b6", rcolor="#2ecc71")
 
-            exidx = exidx + 1
             subplot_idx = subplot_idx + 3
 
         plt.savefig(self.path + "/logs/poses_" + type + "_" + str(self.current_epoch) + ".eps", type="eps", dpi=1000)
         if self.plot_logs:
-            plt.show()
+            plt.draw()
+            plt.pause(0.001)
 
     def flatten_to_camera(self, target, prediction, root_positions, keys):
         N_CAMERAS = 4
@@ -255,6 +266,7 @@ class Trainer:
 
         # Add global position back
         target = target + np.tile(root_positions, [1, N_JOINTS_H36M])
+        prediction = prediction + np.tile(root_positions, [1, N_JOINTS_H36M])
 
         # Load the appropriate camera
         subj, _, sname = keys
@@ -275,6 +287,6 @@ class Trainer:
 
         # Apply inverse rotation and translation
         target = cam2world_centered(target)
-
         prediction = cam2world_centered(prediction)
+
         return target, prediction

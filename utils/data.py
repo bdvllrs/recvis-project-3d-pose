@@ -165,15 +165,16 @@ def postprocess_3d(poses_set):
     return poses_set, root_positions
 
 
-def get_array(poses, targets, root_positions):
+def get_array(poses_2d, poses_3d, root_positions, camera_frame):
     stack_poses, stack_targets, stack_root_positions = [], [], []
     keys = []
     action_to_keys = {}
-    for key in sorted(poses.keys()):
+    for key in sorted(poses_2d.keys()):
         subj, action, seqname = key
-        for k in range(poses[key].shape[0]):
-            stack_poses.append(poses[key][k])
-            stack_targets.append(targets[key][k])
+        key3d = key if camera_frame else (subj, action, '{0}.h5'.format(seqname.split('.')[0]))
+        for k in range(poses_2d[key].shape[0]):
+            stack_poses.append(poses_2d[key][k])
+            stack_targets.append(poses_3d[key3d][k])
             stack_root_positions.append(root_positions[key][k])
             if action not in action_to_keys.keys():
                 action_to_keys[action] = []
@@ -189,7 +190,8 @@ def get_array(poses, targets, root_positions):
 
 
 class Human36M:
-    def __init__(self, path, train_subjects=None, test_subjects=None, actions=None, shuffle_train_set=True):
+    def __init__(self, path, train_subjects=None, test_subjects=None, actions=None, use_camera_frame=True):
+
         self.train_subjects = train_subjects if train_subjects is not None else TRAIN_SUBJECTS
         self.test_subjects = test_subjects if test_subjects is not None else TEST_SUBJECTS
         self.actions = actions if actions is not None else ACTIONS
@@ -205,9 +207,10 @@ class Human36M:
         input_train, input_test, self.data_mean_2d, self.data_std_2d, self.dim_to_ignore_2d, self.dim_to_use_2d = self.get_2d()
         print("Loading 3D...")
         (output_train, output_test, self.data_mean_3d, self.data_std_3d, self.dim_to_ignore_3d, self.dim_to_use_3d,
-         train_root_positions, test_root_positions) = self.get_3d(camera_frame=True)
-        self.train_set = Dataset(input_train, output_train, train_root_positions, shuffle=shuffle_train_set)
-        self.test_set = Dataset(input_test, output_test, test_root_positions, shuffle=False)
+         train_root_positions, test_root_positions) = self.get_3d(camera_frame=use_camera_frame)
+        self.train_set = Dataset(input_train, output_train, train_root_positions, use_camera_frame=use_camera_frame)
+        self.test_set = Dataset(input_test, output_test, test_root_positions,
+                                use_camera_frame=use_camera_frame)
         print("Loaded.")
 
     def load_joints(self, subjects=None, actions=None):
@@ -321,28 +324,16 @@ class Human36M:
 
 
 class Dataset:
-    def __init__(self, data, targets, root_positions, shuffle=True):
+    def __init__(self, data, targets, root_positions, use_camera_frame=True):
         self.data, self.targets, self.root_positions, self.action_to_keys, self.keys = get_array(data, targets,
-                                                                                                 root_positions)
-
-        if shuffle:
-            for action in self.action_to_keys.keys():
-                np.random.shuffle(self.action_to_keys[action])
+                                                                                                 root_positions,
+                                                                                                 use_camera_frame)
 
     def __len__(self):
         return self.data.shape[0]
 
-    def item_to_key(self, item):
-        for action in sorted(self.action_to_keys.keys()):
-            if item < len(self.action_to_keys[action]):
-                return self.action_to_keys[action][item]
-            item -= len(self.action_to_keys[action])
-        # cycle
-        return self.item_to_key(item)
-
     def __getitem__(self, item):
-        k = self.item_to_key(item)
-        return (torch.tensor(self.data[k]),
-                torch.tensor(self.targets[k]),
-                torch.tensor(self.root_positions[k]),
-                self.keys[k])
+        return (torch.tensor(self.data[item]),
+                torch.tensor(self.targets[item]),
+                torch.tensor(self.root_positions[item]),
+                self.keys[item])

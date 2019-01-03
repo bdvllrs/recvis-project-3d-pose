@@ -1,7 +1,6 @@
 import torch
 import torch.nn
 
-
 __all__ = ["Linear"]
 
 
@@ -36,13 +35,19 @@ class Linear(torch.nn.Module):
 
         linear_blocks = [LinearBlock(hidden_size, dropout=dropout) for _ in range(num_lin_block)]
 
+        in_fc = torch.nn.Linear(input_size, hidden_size)
+        out_fc = torch.nn.Linear(hidden_size, output_size)
+
+        torch.nn.init.kaiming_normal_(in_fc.weight)
+        torch.nn.init.kaiming_normal_(out_fc.weight)
+
         self.net = torch.nn.Sequential(
-            torch.nn.Linear(input_size, hidden_size),
+            in_fc,
             torch.nn.BatchNorm1d(hidden_size),
             *linear_blocks,
-            torch.nn.Linear(hidden_size, output_size),
+            out_fc,
             torch.nn.Dropout(dropout),
-            torch.nn.ReLU()
+            # torch.nn.ReLU()
         )
 
     def forward(self, batch):
