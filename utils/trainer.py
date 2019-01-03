@@ -70,6 +70,14 @@ class Trainer:
         self.device = device
         return self
 
+    def load(self, path):
+        self.path = os.path.abspath(os.path.join(path))
+        path_model = os.path.join(self.path, 'model.pth')
+        path_logs = os.path.join(self.path, 'logs', 'log.pkl')
+        self.model.load_state_dict(torch.load(path_model, map_location=self.device))
+        with open(path_logs, 'rb') as file:
+            self.logs = pickle.load(file)
+
     def step_train(self, epoch):
         self.model.train()
         self.step(self.train_loader, epoch, "train")
@@ -161,6 +169,13 @@ class Trainer:
                 torch.save(self.model.state_dict(), model_file)
             print('\nSaved models in ' + self.path + '.')
 
+    def val(self):
+        plt.ioff()
+        self.current_epoch = 0
+        self.step_val(1)
+        plt.show()
+        plt.ion()
+
     def forward(self, data, target):
         out = self.model(data)
         loss = self.criterion(out, target)
@@ -176,23 +191,23 @@ class Trainer:
         return distances.mean()
 
     def plot_learning_curves(self):
-        if len(self.logs['training_error']) == len(self.logs['testing_error']):
-            if self.plot_logs:
-                fig = plt.figure(0)
-                plt.plot(self.logs['epochs'], self.logs['training_error'], "-b")
-                plt.plot(self.logs['epochs'], self.logs['testing_error'], "-r")
-                plt.title('Learning curves')
-                plt.xlabel("Epochs")
-                plt.ylabel("MSE")
-                plt.legend(["Training", "Testing"])
-                fig = plt.figure(3)
-                plt.plot(self.logs['epochs'], self.logs['loss_mm'], "-g")
-                plt.title("Loss mm")
-                plt.draw()
-                plt.pause(0.001)
-            else:
-                with open(self.path + "/logs/log.pkl", 'wb') as f:
-                    pickle.dump(self.logs, f)
+        min_len = min(len(self.logs['training_error']), len(self.logs['testing_error']))
+        if self.plot_logs:
+            fig = plt.figure(0)
+            plt.plot(self.logs['epochs'][:min_len], self.logs['training_error'][:min_len], "-b")
+            plt.plot(self.logs['epochs'][:min_len], self.logs['testing_error'][:min_len], "-r")
+            plt.title('Learning curves')
+            plt.xlabel("Epochs")
+            plt.ylabel("MSE")
+            plt.legend(["Training", "Testing"])
+            fig = plt.figure(3)
+            plt.plot(self.logs['epochs'][:min_len], self.logs['loss_mm'][:min_len], "-g")
+            plt.title("Loss mm")
+            plt.draw()
+            plt.pause(0.001)
+        else:
+            with open(self.path + "/logs/log.pkl", 'wb') as f:
+                pickle.dump(self.logs, f)
 
     def unormalize_2d_data(self, batch):
         return data.un_normalize_data(batch, self.human_dataset.data_mean_2d,
@@ -263,7 +278,7 @@ class Trainer:
 
         # Add global position back
         target = target + np.tile(root_positions, [1, N_JOINTS_H36M])
-        prediction = prediction + np.tile(root_positions, [1, N_JOINTS_H36M])
+        # prediction = prediction + np.tile(root_positions, [1, N_JOINTS_H36M])
 
         # Load the appropriate camera
         subj, _, sname = keys
