@@ -44,8 +44,6 @@ class Trainer:
         self.human_dataset = human_dataset
         self.criterion = torch.nn.MSELoss(reduction='none')
 
-        print(self.model)
-
         self.plot_logs = plot_logs
         if not self.plot_logs:
             plt.switch_backend('agg')
@@ -104,7 +102,7 @@ class Trainer:
                     self.optimizer.step()
                     if batch_id % self.log_every == 0:
                         t.set_description("Train - Epoch " + str(epoch))
-                        t.set_postfix_str("Loss: " + str(loss.data.item()))
+                        t.set_postfix_str("Loss: {0:.4f}".format(loss.data.item()))
                 else:
                     loss, out = self.forward(data_2d, data_3d)
                     loss_mm = self.compute_mm_loss(out.detach().cpu().numpy(), data_3d.detach().cpu().numpy())
@@ -124,14 +122,13 @@ class Trainer:
                 if batch_id % self.log_every == 0:
                     text = "Val - Epoch" if type == "val" else "Train - Epoch"
                     t.set_description(text + str(epoch))
-                    t.set_postfix_str("Loss: " + str(loss.data.item()))
+                    t.set_postfix_str("Loss: {0:.4f}".format(loss.data.item()))
                 t.update()
 
             total_loss /= len(loader.dataset) / batch_size
             self.logs["testing_error" if type == "val" else "training_error"].append(total_loss)
             if type == "val":
-                loss_mm_mean = np.stack(loss_mm_mean)
-                self.logs["loss_mm"].append(loss_mm_mean.mean())
+                self.logs["loss_mm"].append(np.mean(loss_mm_mean))
                 print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
                 # print('\nValidation set: Average loss:', total_loss, '\n')
             else:
@@ -176,7 +173,7 @@ class Trainer:
         distances = np.zeros((loss.shape[0], loss.shape[1] // 3))
         for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
             distances[:, index] = np.sqrt(loss[:, k:k+3].sum(axis=1))
-        return distances
+        return distances.mean()
 
     def plot_learning_curves(self):
         if len(self.logs['training_error']) == len(self.logs['testing_error']):
