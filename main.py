@@ -10,6 +10,7 @@ config.set("n_epochs", 200, "Number of epochs")
 config.set("plot_logs", False, "Number of epochs")
 config.set("max_data_per_joint", -1, "Number of epochs")
 config.set("video_constraints", True, "If we use videos")
+config.set("video_constraints_regularization", 0.4, "Regularization of continuity constraints on video")
 config.set("frames_before", 1, "Number of frames before")
 config.set("frames_after", 1, "Number of frames after")
 
@@ -32,7 +33,8 @@ trainer = Trainer(train_set, test_set, optimizer, model, dataset,
                   save_folder='builds', plot_logs=config.plot_logs,
                   video_constraints=config.video_constraints,
                   frames_before=config.frames_before,
-                  frames_after=config.frames_after).to(device)
+                  frames_after=config.frames_after,
+                  regularization_video_constraints=config.video_constraints_regularization).to(device)
 
 trainer.train(config.n_epochs)
 
