@@ -10,7 +10,7 @@ config.set("n_epochs", 200, "Number of epochs")
 config.set("plot_logs", False, "Number of epochs")
 config.set("max_video_length", -1, "Length max of video")
 config.set("video_constraints", True, "If we use videos")
-config.set("video_constraints_regularization", 0.2, "Regularization of continuity constraints on video")
+config.set("video_constraints_regularization", 0.01, "Regularization of continuity constraints on video")
 config.set("frames_before", 1, "Number of frames before")
 config.set("frames_after", 1, "Number of frames after")
 
@@ -26,7 +26,7 @@ train_set = torch.utils.data.DataLoader(dataset.train_set, batch_size=config.bat
 test_set = torch.utils.data.DataLoader(dataset.test_set, batch_size=config.batch_size)
 
 number_frames = config.frames_before + config.frames_after + 1
-model = Linear(input_size=32 * number_frames, hidden_size=1024 * number_frames, output_size=48).to(device)
+model = Linear(input_size=32 * number_frames, hidden_size=1024, output_size=48).to(device)
 
 optimizer = torch.optim.Adam(model.parameters())
 
