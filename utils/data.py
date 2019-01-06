@@ -214,13 +214,13 @@ def get_array(poses_2d, poses_3d, root_positions, camera_frame, for_video=False,
 
 class Human36M:
     def __init__(self, path, train_subjects=None, test_subjects=None, actions=None, use_camera_frame=True,
-                 max_data_per_joint=-1, use_hourglass=False, video_constraints=False, frames_before=0, frames_after=0):
+                 max_video_length=-1, use_hourglass=False, video_constraints=False, frames_before=0, frames_after=0):
 
         self.train_subjects = train_subjects if train_subjects is not None else TRAIN_SUBJECTS
         self.test_subjects = test_subjects if test_subjects is not None else TEST_SUBJECTS
         self.actions = actions if actions is not None else ACTIONS
 
-        self.max_data_per_joint = max_data_per_joint
+        self.max_video_length = max_video_length
         self.video_constraints = video_constraints
         self.frames_before = frames_before
         self.frames_after = frames_after
@@ -267,7 +267,7 @@ class Human36M:
                 for filename in file_names:
                     with h5py.File(os.path.join(path, filename), 'r') as file:
                         total_len += file['3D_positions'].shape[1]
-                        poses[(subject, action, filename)] = file['3D_positions'][:, :self.max_data_per_joint].T
+                        poses[(subject, action, filename)] = file['3D_positions'][:, :self.max_video_length].T
         return poses
 
     def load_hourglass(self, subjects, actions):

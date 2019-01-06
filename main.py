@@ -8,7 +8,7 @@ config = Config()
 config.set("batch_size", 64, "Batch Size")
 config.set("n_epochs", 200, "Number of epochs")
 config.set("plot_logs", False, "Number of epochs")
-config.set("max_data_per_joint", -1, "Number of epochs")
+config.set("max_video_length", 100, "Length max of video")
 config.set("video_constraints", True, "If we use videos")
 config.set("video_constraints_regularization", 0.2, "Regularization of continuity constraints on video")
 config.set("frames_before", 1, "Number of frames before")
@@ -18,7 +18,7 @@ device_type = "cuda" if torch.cuda.is_available() else "cpu"
 print('Using', device_type)
 device = torch.device(device_type)
 
-dataset = Human36M('../dataset/h36m/', max_data_per_joint=config.max_data_per_joint,
+dataset = Human36M('../dataset/h36m/', max_video_length=config.max_video_length,
                    video_constraints=config.video_constraints,
                    frames_before=config.frames_before, frames_after=config.frames_after)
 

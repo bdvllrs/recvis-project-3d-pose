@@ -178,7 +178,7 @@ class Trainer:
             self.step_train(epoch)
             self.step_val(epoch)
             if self.save_folder is not None and (self.best_loss is None or self.logs["testing_error"][-1] > self.best_loss):
-                print("Model is better, saving...")
+                print("\nModel is better, saving...")
                 self.best_loss = self.logs["testing_error"][-1]
                 model_file = self.path + '/model.pth'
                 torch.save(self.model.state_dict(), model_file)
