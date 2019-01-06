@@ -177,7 +177,7 @@ class Trainer:
             self.logs["epochs"].append(epoch)
             self.step_train(epoch)
             self.step_val(epoch)
-            if self.save_folder is not None and (self.best_loss is None or self.logs["testing_error"][-1] > self.best_loss):
+            if self.save_folder is not None and (self.best_loss is None or self.logs["testing_error"][-1] < self.best_loss):
                 print("\nModel is better, saving...")
                 self.best_loss = self.logs["testing_error"][-1]
                 model_file = self.path + '/model.pth'
