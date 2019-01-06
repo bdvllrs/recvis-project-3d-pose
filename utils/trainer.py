@@ -22,7 +22,8 @@ def lr_decay(optimizer, step, lr, decay_step, gamma):
 
 class Trainer:
     def __init__(self, train_loader, val_loader, optimizer, model, human_dataset, log_every: int = 50,
-                 save_folder: str = None, plot_logs=True):
+                 save_folder: str = None, plot_logs=True, video_constraints=False, frames_before=0, frames_after=0,
+                 regularization_video_constraints=0.9):
         """
         Trainer class
         Args:
@@ -42,7 +43,12 @@ class Trainer:
         self.train_loader = train_loader
         self.device = torch.device("cpu")
         self.human_dataset = human_dataset
-        self.criterion = torch.nn.MSELoss(reduction='none')
+        self.criterion = torch.nn.MSELoss(reduction='elementwise_mean')
+
+        self.video_constraints = video_constraints
+        self.frames_after = frames_after
+        self.frames_before = frames_before
+        self.regularization_video_constraints = regularization_video_constraints
 
         self.plot_logs = plot_logs
         if not self.plot_logs:
@@ -67,6 +73,9 @@ class Trainer:
         self.current_epoch = 0
 
     def to(self, device):
+        """
+        Change device
+        """
         self.device = device
         return self
 
@@ -117,7 +126,10 @@ class Trainer:
                     loss_mm_mean.append(loss_mm)
                 for i in range(loader.batch_size):
                     if k in sample:
-                        viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
+                        if self.video_constraints:
+                            viz_samples_2d.append(data_2d[:, 0, 0, :].detach().cpu().numpy()[i])
+                        else:
+                            viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
                         viz_samples_pred.append(out.detach().cpu().numpy()[i])
                         viz_samples_true.append(data_3d.detach().cpu().numpy()[i])
                         viz_root_positions.append(root_position.detach().cpu().numpy()[i])
@@ -177,9 +189,21 @@ class Trainer:
         plt.ion()
 
     def forward(self, data, target):
-        out = self.model(data)
-        loss = self.criterion(out, target)
-        return loss.mean(), out
+        """
+        Args:
+            data: (batch_size, 32) or (batch_size, 2, 1 + self.frames_before + self.frames_after, 32) if video_constraints
+            target: (batch_size, 48)
+        """
+        if self.video_constraints:
+            data_in_1 = data[:, 0, :, :]
+            data_in_2 = data[:, 1, :, :]
+            out = self.model(data_in_1.reshape(data.size(0), -1))
+            out_2 = self.model(data_in_2.reshape(data.size(0), -1))
+            loss = self.criterion(out, target) + self.regularization_video_constraints * self.criterion(out, out_2)
+        else:
+            out = self.model(data)
+            loss = self.criterion(out, target)
+        return loss, out
 
     def compute_mm_loss(self, prediction, target):
         target = self.unormalize_3d_data(target)

@@ -185,24 +185,20 @@ def get_array(poses_2d, poses_3d, root_positions, camera_frame, for_video=False,
     for key in sorted(poses_2d.keys()):
         subj, action, seqname = key
         key3d = key if camera_frame else (subj, action, '{0}.h5'.format(seqname.split('.')[0]))
-        for k in range(frames_before, poses_2d[key].shape[0] - max(1, frames_after)):
+        for k in range(frames_before, poses_2d[key].shape[0] - frames_after - 1 * int(for_video)):
             input_poses = poses_2d[key][k]
-            output_poses = poses_3d[key3d][k]
-            all_root_positions = root_positions[key][k]
             if for_video:
                 input_poses = []
-                output_poses = []
-                all_root_positions = []
                 for s in range(2):
-                    in_2d_poses = []
-                    for i in range(k + s - frames_before, k + s + frames_after + 1):
-                        in_2d_poses.append(poses_2d[key][i])
+                    in_2d_poses = [poses_2d[key][k + s]]
+                    for i in range(1, frames_before + 1):
+                        in_2d_poses.append(poses_2d[key][k + s - i])
+                    for i in range(1, frames_after + 1):
+                        in_2d_poses.append(poses_2d[key][k + s + i])
                     input_poses.append(in_2d_poses)
-                    output_poses.append(poses_3d[key3d][k + s])
-                    all_root_positions.append(root_positions[key][k + s])
             stack_poses.append(input_poses)
-            stack_targets.append(output_poses)
-            stack_root_positions.append(all_root_positions)
+            stack_targets.append(poses_3d[key3d][k])
+            stack_root_positions.append(root_positions[key][k])
             if action not in action_to_keys.keys():
                 action_to_keys[action] = []
             action_to_keys[action].append(len(stack_poses) - 1)
