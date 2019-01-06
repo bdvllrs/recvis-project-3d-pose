@@ -25,7 +25,8 @@ dataset = Human36M('../dataset/h36m/', max_data_per_joint=config.max_data_per_jo
 train_set = torch.utils.data.DataLoader(dataset.train_set, batch_size=config.batch_size, shuffle=True)
 test_set = torch.utils.data.DataLoader(dataset.test_set, batch_size=config.batch_size)
 
-model = Linear(input_size=32 * (config.frames_before + config.frames_after + 1), hidden_size=1024, output_size=48).to(device)
+number_frames = config.frames_before + config.frames_after + 1
+model = Linear(input_size=32 * number_frames, hidden_size=1024 * number_frames, output_size=48).to(device)
 
 optimizer = torch.optim.Adam(model.parameters())
 
