@@ -10,7 +10,7 @@ config.set("n_epochs", 200, "Number of epochs")
 config.set("plot_logs", False, "Number of epochs")
 config.set("max_data_per_joint", -1, "Number of epochs")
 config.set("video_constraints", True, "If we use videos")
-config.set("video_constraints_regularization", 0.4, "Regularization of continuity constraints on video")
+config.set("video_constraints_regularization", 0.2, "Regularization of continuity constraints on video")
 config.set("frames_before", 1, "Number of frames before")
 config.set("frames_after", 1, "Number of frames after")
 
