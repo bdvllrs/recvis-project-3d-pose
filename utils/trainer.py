@@ -63,6 +63,7 @@ class Trainer:
             "epochs": [],
             "loss_mm": []
         }
+        self.best_loss = None
 
         self.glob_step = 0
 
@@ -176,10 +177,12 @@ class Trainer:
             self.logs["epochs"].append(epoch)
             self.step_train(epoch)
             self.step_val(epoch)
-            if self.save_folder is not None:
+            if self.save_folder is not None and (self.best_loss is None or self.logs["testing_error"][-1] > self.best_loss):
+                print("Model is better, saving...")
+                self.best_loss = self.logs["testing_error"][-1]
                 model_file = self.path + '/model.pth'
                 torch.save(self.model.state_dict(), model_file)
-            print('\nSaved models in ' + self.path + '.')
+                print('\nSaved models in ' + self.path + '.')
 
     def val(self):
         plt.ioff()
