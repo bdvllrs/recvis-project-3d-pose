@@ -109,3 +109,20 @@ def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
         ax.set_ylabel("z")
 
     ax.set_aspect('equal')
+
+
+def play_2d_video(poses, ax):
+    plt.axis('off')
+
+    subplot_idx, exidx = 1, 0
+    nsamples = poses.shape[0]
+
+    for i in range(nsamples):
+        # Plot 2d pose
+        p2d = poses[i, :]
+        ax.cla()
+        show2Dpose(p2d, ax)
+        ax.invert_yaxis()
+        subplot_idx = subplot_idx + 3
+        plt.draw()
+        plt.pause(1/25)

@@ -9,6 +9,8 @@ import numpy as np
 from utils import project_to_cameras, transform_world_to_camera, load_camera_params
 import torch.utils.data
 import torch
+import matplotlib.pyplot as plt
+import utils.viz as viz
 
 # Human3.6m IDs for training and testing
 TRAIN_SUBJECTS = [1, 5, 6, 7, 8]
@@ -165,17 +167,42 @@ def postprocess_3d(poses_set):
     return poses_set, root_positions
 
 
-def get_array(poses_2d, poses_3d, root_positions, camera_frame):
+def get_array(poses_2d, poses_3d, root_positions, camera_frame, for_video=False, frames_before=0, frames_after=0):
+    """
+    Get array from poses dict
+    Args:
+        poses_2d:
+        poses_3d:
+        root_positions:
+        camera_frame:
+        for_video: if True, uses video continuity constraints
+        frames_before: if for_video, number of frames to use before current one
+        frames_after: if for_video, number of frames to use after current one
+    """
     stack_poses, stack_targets, stack_root_positions = [], [], []
     keys = []
     action_to_keys = {}
     for key in sorted(poses_2d.keys()):
         subj, action, seqname = key
         key3d = key if camera_frame else (subj, action, '{0}.h5'.format(seqname.split('.')[0]))
-        for k in range(poses_2d[key].shape[0]):
-            stack_poses.append(poses_2d[key][k])
-            stack_targets.append(poses_3d[key3d][k])
-            stack_root_positions.append(root_positions[key][k])
+        for k in range(frames_before, poses_2d[key].shape[0] - max(1, frames_after)):
+            input_poses = poses_2d[key][k]
+            output_poses = poses_3d[key3d][k]
+            all_root_positions = root_positions[key][k]
+            if for_video:
+                input_poses = []
+                output_poses = []
+                all_root_positions = []
+                for s in range(2):
+                    in_2d_poses = []
+                    for i in range(k + s - frames_before, k + s + frames_after + 1):
+                        in_2d_poses.append(poses_2d[key][i])
+                    input_poses.append(in_2d_poses)
+                    output_poses.append(poses_3d[key3d][k + s])
+                    all_root_positions.append(root_positions[key][k + s])
+            stack_poses.append(input_poses)
+            stack_targets.append(output_poses)
+            stack_root_positions.append(all_root_positions)
             if action not in action_to_keys.keys():
                 action_to_keys[action] = []
             action_to_keys[action].append(len(stack_poses) - 1)
@@ -191,13 +218,16 @@ def get_array(poses_2d, poses_3d, root_positions, camera_frame):
 
 class Human36M:
     def __init__(self, path, train_subjects=None, test_subjects=None, actions=None, use_camera_frame=True,
-                 max_data_per_joint=-1):
+                 max_data_per_joint=-1, use_hourglass=False, video_constraints=False, frames_before=0, frames_after=0):
 
         self.train_subjects = train_subjects if train_subjects is not None else TRAIN_SUBJECTS
         self.test_subjects = test_subjects if test_subjects is not None else TEST_SUBJECTS
         self.actions = actions if actions is not None else ACTIONS
 
         self.max_data_per_joint = max_data_per_joint
+        self.video_constraints = video_constraints
+        self.frames_before = frames_before
+        self.frames_after = frames_after
 
         self.file_path = os.path.abspath(os.path.join(os.curdir, path))
         self.camera_path = os.path.abspath(os.path.join(os.curdir, path, 'cameras.h5'))
@@ -207,13 +237,17 @@ class Human36M:
         self.test_poses = self.load_joints(self.test_subjects, self.actions)
         self.cameras = self.load_cameras()
         print("Loading 2D...")
-        input_train, input_test, self.data_mean_2d, self.data_std_2d, self.dim_to_ignore_2d, self.dim_to_use_2d = self.get_2d()
+        input_train, input_test, self.data_mean_2d, self.data_std_2d, self.dim_to_ignore_2d, self.dim_to_use_2d = self.get_2d(
+            use_hourglass)
         print("Loading 3D...")
         (output_train, output_test, self.data_mean_3d, self.data_std_3d, self.dim_to_ignore_3d, self.dim_to_use_3d,
          train_root_positions, test_root_positions) = self.get_3d(camera_frame=use_camera_frame)
-        self.train_set = Dataset(input_train, output_train, train_root_positions, use_camera_frame=use_camera_frame)
+        self.train_set = Dataset(input_train, output_train, train_root_positions, use_camera_frame=use_camera_frame,
+                                 video_constraints=video_constraints, frames_before=frames_before,
+                                 frames_after=frames_after)
         self.test_set = Dataset(input_test, output_test, test_root_positions,
-                                use_camera_frame=use_camera_frame)
+                                use_camera_frame=use_camera_frame, video_constraints=video_constraints,
+                                frames_before=frames_before, frames_after=frames_after)
         print("Loaded.")
 
     def load_joints(self, subjects=None, actions=None):
@@ -240,6 +274,46 @@ class Human36M:
                         poses[(subject, action, filename)] = file['3D_positions'][:, :self.max_data_per_joint].T
         return poses
 
+    def load_hourglass(self, subjects, actions):
+        """
+        Load 2D poses from the hourglass
+        Args:
+            subjects:
+            actions:
+        """
+        hourglass_to_human_joints = np.array([SH_NAMES.index(h) for h in H36M_NAMES if h != '' and h in SH_NAMES])
+        assert np.all(hourglass_to_human_joints == np.array([6, 2, 1, 0, 3, 4, 5, 7, 8, 9, 13, 14, 15, 12, 11, 10]))
+        data = {}
+        for subject in subjects:
+            for action in actions:
+                path = os.path.join(self.file_path,
+                                    'S{0}'.format(subject),
+                                    'StackedHourglass')
+                request = r'{0}_?[0-9]?.[0-9]+.h5'.format(action)
+                file_names = [f for f in os.listdir(path) if re.search(request, f)]
+                for filename in file_names:
+                    seqname = filename.replace('_', ' ')
+                    with h5py.File(os.path.join(path, filename), 'r') as file:
+                        poses = file['poses'][:]
+
+                        # Permute the loaded data to make it compatible with H36M
+                        poses = poses[:, hourglass_to_human_joints, :]
+
+                        # Reshape into n x (32*2) matrix
+                        poses = np.reshape(poses, [poses.shape[0], -1])
+                        poses_final = np.zeros([poses.shape[0], len(H36M_NAMES) * 2])
+
+                        dim_to_use_x = np.where(np.array([x != '' and x != 'Neck/Nose' for x in H36M_NAMES]))[0] * 2
+                        dim_to_use_y = dim_to_use_x + 1
+
+                        dim_to_use = np.zeros(len(SH_NAMES) * 2, dtype=np.int32)
+                        dim_to_use[0::2] = dim_to_use_x
+                        dim_to_use[1::2] = dim_to_use_y
+                        poses_final[:, dim_to_use] = poses
+                        seqname = seqname + '-sh'
+                        data[(subject, action, seqname)] = poses_final
+        return data
+
     def load_cameras(self):
         """Loads the cameras of h36m
         Args
@@ -259,7 +333,7 @@ class Human36M:
                                                                       'subject%d/camera%d/{0}' % (subject, camera + 1))
         return rcams
 
-    def get_2d(self):
+    def get_2d(self, use_hourglass=False):
         """
         Creates 2d poses by projecting 3d poses with the corresponding camera
         parameters. Also normalizes the 2d poses
@@ -273,8 +347,12 @@ class Human36M:
         """
 
         # Load 3d data
-        train_set = project_to_cameras(self.train_poses, self.cameras, H36M_NAMES)
-        test_set = project_to_cameras(self.test_poses, self.cameras, H36M_NAMES)
+        if not use_hourglass:
+            train_set = project_to_cameras(self.train_poses, self.cameras, H36M_NAMES)
+            test_set = project_to_cameras(self.test_poses, self.cameras, H36M_NAMES)
+        else:
+            train_set = self.load_hourglass(self.train_subjects, self.actions)
+            test_set = self.load_hourglass(self.test_subjects, self.actions)
 
         # Compute normalization statistics.
         complete_train = copy.deepcopy(np.vstack(train_set.values()))
@@ -327,10 +405,12 @@ class Human36M:
 
 
 class Dataset:
-    def __init__(self, data, targets, root_positions, use_camera_frame=True):
-        self.data, self.targets, self.root_positions, self.action_to_keys, self.keys = get_array(data, targets,
-                                                                                                 root_positions,
-                                                                                                 use_camera_frame)
+    def __init__(self, data, targets, root_positions, use_camera_frame=True, video_constraints=False, frames_before=0,
+                 frames_after=0):
+        (self.data, self.targets,
+         self.root_positions,
+         self.action_to_keys, self.keys) = get_array(data, targets, root_positions, use_camera_frame,
+                                                     video_constraints, frames_before, frames_after)
 
     def __len__(self):
         return self.data.shape[0]

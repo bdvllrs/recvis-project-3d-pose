@@ -7,8 +7,8 @@ from utils.trainer import Trainer
 config = Config()
 config.set("batch_size", 64, "Batch Size")
 config.set("n_epochs", 200, "Number of epochs")
-config.set("plot_logs", False, "Number of epochs")
-config.set("max_data_per_joint", -1, "Number of epochs")
+config.set("plot_logs", True, "Number of epochs")
+config.set("max_data_per_joint", 300, "Number of epochs")
 
 device_type = "cuda" if torch.cuda.is_available() else "cpu"
 print('Using', device_type)
@@ -27,8 +27,8 @@ optimizer = torch.optim.Adam(model.parameters())
 trainer = Trainer(train_set, test_set, optimizer, model, dataset,
                   save_folder='builds', plot_logs=config.plot_logs).to(device)
 
-trainer.train(config.n_epochs)
+# trainer.train(config.n_epochs)
 
-# trainer.load('./builds/2019-01-03 15:28:25')
-# trainer.val()
+trainer.load('./builds/2019-01-03 15:28:25')
+trainer.val()
 
