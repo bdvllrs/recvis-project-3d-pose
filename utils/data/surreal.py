@@ -20,12 +20,21 @@ def get_frames_from_video(video_path):
 
 
 class SurrealDataset:
-    def __init__(self, path, data_type, run, dataset="cmu"):
+    def __init__(self, path, data_type, run, dataset="cmu", eval=False):
+        """
+        Args:
+            path: path ro root surreal data
+            data_type: train, val or test
+            run: run0, run1 or run2
+            dataset: cmu
+            eval: if False, will shuffle all frames from videos
+        """
         assert data_type in ['train', 'val', 'test'], "Surreal type must be in train, val or test."
         assert run in ['run0', 'run1', 'run2'], "Surreal run must be between run0, run1 and run2"
         assert dataset in ['cmu'], "Surreal dataset must be cmu"
 
         self.path = path
+        self.eval = eval
 
         # path = os.path.abspath(path)
         root_path = os.path.join(path, dataset, data_type, run)
