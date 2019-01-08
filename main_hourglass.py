@@ -17,8 +17,10 @@ device = torch.device(device_type)
 test_set, val_set, train_set = [], [], []
 
 if config.data_type == "surreal":
-    test_set = SurrealDataset(config.data_path, 'test', config.run)
+    test_set = SurrealDataset(config.data_path, 'test', config.run, use_video_constraints=True, frames_after=1, frames_before=1)
     val_set = SurrealDataset(config.data_path, 'val', config.run)
+    print(test_set[0][0].shape)
+    exit()
     train_set = SurrealDataset(config.data_path, 'train', config.run)
 
 test_dataset = torch.utils.data.DataLoader(test_set, batch_size=config.batch_size, shuffle=False)
