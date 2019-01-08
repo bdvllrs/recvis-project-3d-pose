@@ -134,7 +134,7 @@ class StackedHourGlass(nn.Module):
         self.jointstochan = nn.ModuleList(_jointstochan)
 
         if not return_heatmap:
-            self.fc = nn.Linear(16 * 64 * 64, 16 * 2)
+            self.fc = nn.Linear(16 * 64 * 64, self.nJoints * 2)
 
     def forward(self, x):
         x = self.start(x)

@@ -71,6 +71,9 @@ class SurrealDataset:
             - frames has shape (T, width=240, height=320, channels=3)
             - joints_2d has shape (2, 24, T)
             - joints_3d has shape (3, 24, T)
+            Order of the joints:
+                - Hip, LHip, RHip, Thorax, LKnee, RKnee, Thorax 2, LFoot, RFoot, Thorax 3, LToes, RToes, Neck, LChest,
+                RChest, Chin, LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist, LHand, RHand
         """
         frames = np.array([frame for frame in get_frames_from_video(self.files[item])])
         video_info = loadmat(self.targets[item])

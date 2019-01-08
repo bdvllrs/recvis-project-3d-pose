@@ -4,6 +4,7 @@ from utils.data import SurrealDataset
 from utils import Config
 from models import StackedHourGlass
 from utils import StackedHourglassTrainer
+import matplotlib.pyplot as plt
 
 config = Config('./config')
 

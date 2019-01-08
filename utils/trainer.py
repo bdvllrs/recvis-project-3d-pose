@@ -334,7 +334,71 @@ class Trainer:
 class StackedHourglassTrainer(Trainer):
 
     def step(self, loader, epoch, type):
-        pass
+        total_loss = 0
+        batch_size = loader.batch_size
+        sample = np.arange(len(loader.dataset))
+        np.random.shuffle(sample)
+        sample = sample[:15]
+        viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions = [], [], [], []
+        viz_keys = [], [], []
+        k = 0
+        loss_mm_mean = []
+        with tqdm(total=len(loader.dataset) / loader.batch_size) as t:
+            for batch_id, data in enumerate(loader):
+                frames, joints_2d, _ = data
+                data_2d, data_3d = data_2d.to(self.device, torch.float), data_3d.to(self.device, torch.float)
+                root_position = root_position.to(self.device, torch.float)
+                if type == "train":
+                    self.optimizer.zero_grad()
+                    loss, out = self.forward(data_2d, data_3d)
+                    loss.backward()
+                    # Clip grad
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                    self.optimizer.step()
+                    if batch_id % self.log_every == 0:
+                        t.set_description("Train - Epoch " + str(epoch))
+                        t.set_postfix_str("Loss: {0:.4f}".format(loss.data.item()))
+                else:
+                    loss, out = self.forward(data_2d, data_3d)
+                    loss_mm = self.compute_mm_loss(out.detach().cpu().numpy(), data_3d.detach().cpu().numpy())
+                    loss_mm_mean.append(loss_mm)
+                for i in range(loader.batch_size):
+                    if k in sample:
+                        if self.video_constraints:
+                            viz_samples_2d.append(data_2d[:, 0, 0, :].detach().cpu().numpy()[i])
+                        else:
+                            viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
+                        viz_samples_pred.append(out.detach().cpu().numpy()[i])
+                        viz_samples_true.append(data_3d.detach().cpu().numpy()[i])
+                        viz_root_positions.append(root_position.detach().cpu().numpy()[i])
+                        viz_keys[0].append(keys[0][i])
+                        viz_keys[1].append(keys[1][i])
+                        viz_keys[2].append(keys[2][i])
+                    k += 1
+                total_loss += loss.data.item()
+                # get the index of the max log-probability
+                if batch_id % self.log_every == 0:
+                    text = "Val - Epoch" if type == "val" else "Train - Epoch"
+                    t.set_description(text + str(epoch))
+                    t.set_postfix_str("Loss: {0:.4f}".format(loss.data.item()))
+                t.update()
+
+            total_loss /= len(loader.dataset) / batch_size
+            self.logs["testing_error" if type == "val" else "training_error"].append(total_loss)
+            if type == "val":
+                self.logs["loss_mm"].append(np.mean(loss_mm_mean))
+                print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
+                # print('\nValidation set: Average loss:', total_loss, '\n')
+            else:
+                print('\nTraining set: Average loss:', total_loss, '\n')
+
+            viz_samples_2d = np.array(viz_samples_2d)
+            viz_samples_pred = np.array(viz_samples_pred)
+            viz_samples_true = np.array(viz_samples_true)
+            viz_root_positions = np.array(viz_root_positions)
+
+            self.visualize(viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions, viz_keys, type)
+            self.plot_learning_curves()
 
     def forward(self, data, target):
         pass

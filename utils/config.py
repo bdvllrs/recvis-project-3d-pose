@@ -2,6 +2,15 @@ import os
 import yaml
 
 
+def update_config(conf, new_conf):
+    for item in new_conf.keys():
+        if type(new_conf[item]) == dict and item in conf.keys():
+            conf[item] = update_config(conf[item], new_conf[item])
+        else:
+            conf[item] = new_conf[item]
+    return conf
+
+
 class Config:
     def __init__(self, path=None, config=None):
         self.is_none = False
@@ -13,7 +22,7 @@ class Config:
             for config in sorted(os.listdir(self.path)):
                 if config != "defaulf.yaml" and config[-4:] in ["yaml", "yml"]:
                     with open(os.path.join(self.path, config), "rb") as config_file:
-                        self.data.update(yaml.load(config_file))
+                        self.data = update_config(self.data, yaml.load(config_file))
 
     def set(self, key, value):
         self.data[key] = value
