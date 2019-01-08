@@ -1,0 +1,12 @@
+# Make a new file with different values to override the defaults.
+device_type: cuda
+main: # For the main.py file. Config for the Martinez et al. approach.
+  batch_size: 64
+  n_epochs: 5 # Number of epochs to execute.
+  plot_logs: No # If we should plot images and loss.
+  max_video_length: -1 # Maximum length of the video to consider. -1 for all video
+  video_constraints: # Use continuity constraints in videos
+    use: Yes
+    regularization: 0.0001
+    frames_before: 0 # Frames to consider before the current frame
+    frames_after: 1 # Same with next frames

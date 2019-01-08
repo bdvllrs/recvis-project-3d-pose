@@ -9,8 +9,6 @@ import numpy as np
 from utils import project_to_cameras, transform_world_to_camera, load_camera_params
 import torch.utils.data
 import torch
-import matplotlib.pyplot as plt
-import utils.viz as viz
 
 # Human3.6m IDs for training and testing
 TRAIN_SUBJECTS = [1, 5, 6, 7, 8]
@@ -238,12 +236,12 @@ class Human36M:
         print("Loading 3D...")
         (output_train, output_test, self.data_mean_3d, self.data_std_3d, self.dim_to_ignore_3d, self.dim_to_use_3d,
          train_root_positions, test_root_positions) = self.get_3d(camera_frame=use_camera_frame)
-        self.train_set = Dataset(input_train, output_train, train_root_positions, use_camera_frame=use_camera_frame,
-                                 video_constraints=video_constraints, frames_before=frames_before,
-                                 frames_after=frames_after)
-        self.test_set = Dataset(input_test, output_test, test_root_positions,
-                                use_camera_frame=use_camera_frame, video_constraints=video_constraints,
-                                frames_before=frames_before, frames_after=frames_after)
+        self.train_set = HumanDataset(input_train, output_train, train_root_positions, use_camera_frame=use_camera_frame,
+                                      video_constraints=video_constraints, frames_before=frames_before,
+                                      frames_after=frames_after)
+        self.test_set = HumanDataset(input_test, output_test, test_root_positions,
+                                     use_camera_frame=use_camera_frame, video_constraints=video_constraints,
+                                     frames_before=frames_before, frames_after=frames_after)
         print("Loaded.")
 
     def load_joints(self, subjects=None, actions=None):
@@ -400,7 +398,7 @@ class Human36M:
                 train_root_positions, test_root_positions)
 
 
-class Dataset:
+class HumanDataset:
     def __init__(self, data, targets, root_positions, use_camera_frame=True, video_constraints=False, frames_before=0,
                  frames_after=0):
         (self.data, self.targets,
