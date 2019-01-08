@@ -14,7 +14,7 @@ main: # For the main.py file. Config for the Martinez et al. approach.
   max_video_length: -1 # Maximum length of the video to consider. -1 for all video
 
 hourglass: # For the training of the hourglass model
-  data_path: /run/media/bdvllrs/Data/Documents/Supelec/MVA/Image/SURREAL2/data
+  data_path: /path/to/surreal/SURREAL/data
   data_type: surreal
   n_joints: 24
   run: run0
