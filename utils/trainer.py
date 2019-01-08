@@ -10,7 +10,7 @@ import pickle
 
 import torch
 
-__all__ = ['Trainer']
+__all__ = ['Trainer', 'StackedHourglassTrainer']
 
 
 def lr_decay(optimizer, step, lr, decay_step, gamma):
@@ -329,3 +329,12 @@ class Trainer:
         prediction = cam2world_centered(prediction)
 
         return target, prediction
+
+
+class StackedHourglassTrainer(Trainer):
+
+    def step(self, loader, epoch, type):
+        pass
+
+    def forward(self, data, target):
+        pass
