@@ -23,7 +23,7 @@ def lr_decay(optimizer, step, lr, decay_step, gamma):
 class Trainer:
     def __init__(self, train_loader, val_loader, optimizer, model, human_dataset, log_every: int = 50,
                  save_folder: str = None, plot_logs=True, video_constraints=False, frames_before=0, frames_after=0,
-                 regularization_video_constraints=0.9):
+                 regularization_video_constraints=0.0001):
         """
         Trainer class
         Args:
