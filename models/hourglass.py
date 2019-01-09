@@ -96,7 +96,7 @@ class Hourglass(nn.Module):
 class StackedHourGlass(nn.Module):
     """docstring for StackedHourGlass"""
 
-    def __init__(self, nChannels, nStack, nModules, numReductions, nJoints, return_heatmap=True):
+    def __init__(self, nChannels, nStack, nModules, numReductions, nJoints, n_frames=1, return_heatmap=True):
         super(StackedHourGlass, self).__init__()
         self.nChannels = nChannels
         self.nStack = nStack
@@ -104,8 +104,9 @@ class StackedHourGlass(nn.Module):
         self.numReductions = numReductions
         self.nJoints = nJoints
         self.return_heatmap = return_heatmap
+        self.n_frames = n_frames
 
-        self.start = M.BnReluConv(3, 64, kernelSize=7, stride=2, padding=3)
+        self.start = M.BnReluConv(3 * n_frames, 64, kernelSize=7, stride=2, padding=3)
 
         self.res1 = M.Residual(64, 128)
         self.mp = nn.MaxPool2d(2, 2)
@@ -134,7 +135,10 @@ class StackedHourGlass(nn.Module):
         self.jointstochan = nn.ModuleList(_jointstochan)
 
         if not return_heatmap:
-            self.fc = nn.Linear(16 * 64 * 64, self.nJoints * 2)
+            self.fc = nn.Sequential(
+                nn.Linear(self.nJoints * 64 * 64, self.nJoints * 2),
+                nn.ReLU()
+            )
 
     def forward(self, x):
         x = self.start(x)

@@ -3,7 +3,7 @@ import torch.utils.data
 from utils.data import SurrealDataset
 from utils import Config
 from models import StackedHourGlass
-from utils import StackedHourglassTrainer
+from utils import StackedHourglassTrainer as Trainer
 import matplotlib.pyplot as plt
 
 config = Config('./config')
@@ -19,15 +19,42 @@ device = torch.device(device_type)
 test_set, val_set, train_set = [], [], []
 
 if config.data_type == "surreal":
-    test_set = SurrealDataset(config.data_path, 'test', config.run)
-    val_set = SurrealDataset(config.data_path, 'val', config.run)
-    train_set = SurrealDataset(config.data_path, 'train', config.run)
+    test_set = SurrealDataset(config.data_path, 'test', config.run,
+                              frames_before=config_video_constraints.frames_before,
+                              frames_after=config_video_constraints.frames_after)
+
+    # frame, joints, _ = test_set[0]
+    # frame = frame[0].transpose((1, 2, 0))
+    # plt.imshow(frame)
+    # for k in range(joints.shape[1]):
+    #     circle = plt.Circle((joints[0, k], joints[1, k]), radius=1, color='red')
+    #     plt.gcf().gca().add_artist(circle)
+    # plt.show()
+    # print(frame.shape)
+    val_set = SurrealDataset(config.data_path, 'val', config.run,
+                             frames_before=config_video_constraints.frames_before,
+                             frames_after=config_video_constraints.frames_after)
+    train_set = SurrealDataset(config.data_path, 'train', config.run,
+                               frames_before=config_video_constraints.frames_before,
+                               frames_after=config_video_constraints.frames_after)
 
 test_dataset = torch.utils.data.DataLoader(test_set, batch_size=config.batch_size, shuffle=False)
 val_dataset = torch.utils.data.DataLoader(val_set, batch_size=config.batch_size, shuffle=False)
-# train_dataset = torch.utils.data.DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
+train_dataset = torch.utils.data.DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
 
-model = StackedHourGlass(config.n_channels, config.n_stack, config.n_modules, config.n_reductions, config.n_joints)
+n_frames = 1 + config_video_constraints.frames_before + config_video_constraints.frames_after
+
+model = StackedHourGlass(config.n_channels, config.n_stack, config.n_modules, config.n_reductions, config.n_joints,
+                         n_frames, return_heatmap=False)
 model = model.to(device)
 
+optimizer = torch.optim.Adam(model.parameters())
 
+trainer = Trainer(train_dataset, test_dataset, optimizer, model,
+                  save_folder='builds/hourglass', plot_logs=config.plot_logs,
+                  video_constraints=config_video_constraints.use,
+                  frames_before=config_video_constraints.frames_before,
+                  frames_after=config_video_constraints.frames_after,
+                  regularization_video_constraints=config_video_constraints.regularization).to(device)
+
+trainer.train(config.n_epochs)

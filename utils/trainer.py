@@ -21,9 +21,9 @@ def lr_decay(optimizer, step, lr, decay_step, gamma):
 
 
 class Trainer:
-    def __init__(self, train_loader, val_loader, optimizer, model, human_dataset, log_every: int = 50,
+    def __init__(self, train_loader, val_loader, optimizer, model, human_dataset=None, log_every: int = 50,
                  save_folder: str = None, plot_logs=True, video_constraints=False, frames_before=0, frames_after=0,
-                 regularization_video_constraints=0.0001):
+                 regularization_video_constraints=0.0001, config=None):
         """
         Trainer class
         Args:
@@ -170,14 +170,15 @@ class Trainer:
         """
         if self.save_folder is not None and self.path is None:
             self.path = self.save_folder + '/' + datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-            os.mkdir(self.path)
+            os.makedirs(self.path)
             os.mkdir(self.path + "/logs")
         for epoch in range(1, n_epochs + 1):
             self.current_epoch = epoch
             self.logs["epochs"].append(epoch)
             self.step_train(epoch)
             self.step_val(epoch)
-            if self.save_folder is not None and (self.best_loss is None or self.logs["testing_error"][-1] < self.best_loss):
+            if self.save_folder is not None and (
+                    self.best_loss is None or self.logs["testing_error"][-1] < self.best_loss):
                 print("\nModel is better, saving...")
                 self.best_loss = self.logs["testing_error"][-1]
                 model_file = self.path + '/model.pth'
@@ -214,7 +215,7 @@ class Trainer:
         loss = (target - prediction) ** 2
         distances = np.zeros((loss.shape[0], loss.shape[1] // 3))
         for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
-            distances[:, index] = np.sqrt(loss[:, k:k+3].sum(axis=1))
+            distances[:, index] = np.sqrt(loss[:, k:k + 3].sum(axis=1))
         return distances.mean()
 
     def plot_learning_curves(self):
@@ -332,49 +333,47 @@ class Trainer:
 
 
 class StackedHourglassTrainer(Trainer):
-
     def step(self, loader, epoch, type):
         total_loss = 0
         batch_size = loader.batch_size
-        sample = np.arange(len(loader.dataset))
-        np.random.shuffle(sample)
-        sample = sample[:15]
-        viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions = [], [], [], []
-        viz_keys = [], [], []
-        k = 0
-        loss_mm_mean = []
+        # sample = np.arange(len(loader.dataset))
+        # np.random.shuffle(sample)
+        # sample = sample[:15]
+        # viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions = [], [], [], []
+        # viz_keys = [], [], []
+        # k = 0
+        # loss_mm_mean = []
         with tqdm(total=len(loader.dataset) / loader.batch_size) as t:
             for batch_id, data in enumerate(loader):
                 frames, joints_2d, _ = data
-                data_2d, data_3d = data_2d.to(self.device, torch.float), data_3d.to(self.device, torch.float)
-                root_position = root_position.to(self.device, torch.float)
+                frames, joints_2d = frames.to(self.device, torch.float), joints_2d.to(self.device, torch.float)
                 if type == "train":
                     self.optimizer.zero_grad()
-                    loss, out = self.forward(data_2d, data_3d)
+                    loss, out = self.forward(frames, joints_2d)
                     loss.backward()
                     # Clip grad
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                    # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                     self.optimizer.step()
                     if batch_id % self.log_every == 0:
                         t.set_description("Train - Epoch " + str(epoch))
                         t.set_postfix_str("Loss: {0:.4f}".format(loss.data.item()))
                 else:
-                    loss, out = self.forward(data_2d, data_3d)
-                    loss_mm = self.compute_mm_loss(out.detach().cpu().numpy(), data_3d.detach().cpu().numpy())
-                    loss_mm_mean.append(loss_mm)
-                for i in range(loader.batch_size):
-                    if k in sample:
-                        if self.video_constraints:
-                            viz_samples_2d.append(data_2d[:, 0, 0, :].detach().cpu().numpy()[i])
-                        else:
-                            viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
-                        viz_samples_pred.append(out.detach().cpu().numpy()[i])
-                        viz_samples_true.append(data_3d.detach().cpu().numpy()[i])
-                        viz_root_positions.append(root_position.detach().cpu().numpy()[i])
-                        viz_keys[0].append(keys[0][i])
-                        viz_keys[1].append(keys[1][i])
-                        viz_keys[2].append(keys[2][i])
-                    k += 1
+                    loss, out = self.forward(frames, joints_2d)
+                    # loss_mm = self.compute_mm_loss(out.detach().cpu().numpy(), data_3d.detach().cpu().numpy())
+                    # loss_mm_mean.append(loss_mm)
+                # for i in range(loader.batch_size):
+                #     if k in sample:
+                #         if self.video_constraints:
+                #             viz_samples_2d.append(data_2d[:, 0, 0, :].detach().cpu().numpy()[i])
+                #         else:
+                #             viz_samples_2d.append(data_2d.detach().cpu().numpy()[i])
+                #         viz_samples_pred.append(out.detach().cpu().numpy()[i])
+                #         viz_samples_true.append(data_3d.detach().cpu().numpy()[i])
+                #         viz_root_positions.append(root_position.detach().cpu().numpy()[i])
+                #         viz_keys[0].append(keys[0][i])
+                #         viz_keys[1].append(keys[1][i])
+                #         viz_keys[2].append(keys[2][i])
+                #     k += 1
                 total_loss += loss.data.item()
                 # get the index of the max log-probability
                 if batch_id % self.log_every == 0:
@@ -386,19 +385,31 @@ class StackedHourglassTrainer(Trainer):
             total_loss /= len(loader.dataset) / batch_size
             self.logs["testing_error" if type == "val" else "training_error"].append(total_loss)
             if type == "val":
-                self.logs["loss_mm"].append(np.mean(loss_mm_mean))
-                print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
-                # print('\nValidation set: Average loss:', total_loss, '\n')
+                # self.logs["loss_mm"].append(np.mean(loss_mm_mean))
+                # print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
+                print('\nValidation set: Average loss:', total_loss, '\n')
             else:
                 print('\nTraining set: Average loss:', total_loss, '\n')
 
-            viz_samples_2d = np.array(viz_samples_2d)
-            viz_samples_pred = np.array(viz_samples_pred)
-            viz_samples_true = np.array(viz_samples_true)
-            viz_root_positions = np.array(viz_root_positions)
-
-            self.visualize(viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions, viz_keys, type)
+            # viz_samples_2d = np.array(viz_samples_2d)
+            # viz_samples_pred = np.array(viz_samples_pred)
+            # viz_samples_true = np.array(viz_samples_true)
+            # viz_root_positions = np.array(viz_root_positions)
+            #
+            # self.visualize(viz_samples_2d, viz_samples_pred, viz_samples_true, viz_root_positions, viz_keys, type)
             self.plot_learning_curves()
 
     def forward(self, data, target):
-        pass
+        frames = data
+        if self.video_constraints:
+            # n_frames = 1 + self.frames_after + self.frames_before
+            frames_1 = frames[:, :-1, :, :, :]
+            frames_2 = frames[:, 1:, :, :, :]
+            frames_1 = frames_1.reshape(frames_1.size(0), -1, frames_1.size(3), frames_1.size(4))
+            frames_2 = frames_2.reshape(frames_2.size(0), -1, frames_2.size(3), frames_2.size(4))
+            prediction_1 = self.model(frames_1)
+            prediction_2 = self.model(frames_2)
+            target = target.reshape(target.size(0), target.size(1) * target.size(2))
+            loss = (self.criterion(prediction_1, target) +
+                    self.regularization_video_constraints * self.criterion(prediction_1, prediction_2))
+            return loss, prediction_1
