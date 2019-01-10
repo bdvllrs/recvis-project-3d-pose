@@ -172,4 +172,3 @@ class VideoContinuitySHourglass(nn.Module):
             out[:, k] = o
         out = out.view(out.size(0), -1)
         return self.fc(out)
-

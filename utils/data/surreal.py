@@ -102,7 +102,7 @@ class SurrealDataset:
         joints_2d = video_info["joints2D"] * 1.1  # to correspond to the image scaling
         joints_3d = video_info["joints3D"]
         # crop to power of two for better down/up sampling in hourglass
-        frames, joints_2d = center_crop(frames, joints_2d, 256, 256)
+        frames, joints_2d = center_crop(frames, joints_2d, 224, 224)
         cur = np.random.randint(self.frames_before, frames.shape[0] - self.frames_after - 1)
         # +1 at the end for 2 different set of video to train continuity constraint
         s = slice(cur - self.frames_before, cur + self.frames_after + 2)
