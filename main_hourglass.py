@@ -50,11 +50,13 @@ model = model.to(device)
 
 optimizer = torch.optim.Adam(model.parameters())
 
-trainer = Trainer(train_dataset, test_dataset, optimizer, model,
-                  save_folder='builds/hourglass', plot_logs=config.plot_logs,
-                  video_constraints=config_video_constraints.use,
-                  frames_before=config_video_constraints.frames_before,
-                  frames_after=config_video_constraints.frames_after,
-                  regularization_video_constraints=config_video_constraints.regularization).to(device)
-
-trainer.train(config.n_epochs)
+for data, joints_2d, joints_3d in train_dataset:
+    pass
+# trainer = Trainer(train_dataset, test_dataset, optimizer, model,
+#                   save_folder='builds/hourglass', plot_logs=config.plot_logs,
+#                   video_constraints=config_video_constraints.use,
+#                   frames_before=config_video_constraints.frames_before,
+#                   frames_after=config_video_constraints.frames_after,
+#                   regularization_video_constraints=config_video_constraints.regularization).to(device)
+#
+# trainer.train(config.n_epochs)

@@ -20,7 +20,7 @@ hourglass: # For the training of the hourglass model
   n_epochs: 100
   n_joints: 24
   run: run0
-  batch_size: 1
+  batch_size: 16
   n_channels: 256
   n_stack: 2
   n_modules: 2

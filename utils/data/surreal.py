@@ -98,20 +98,23 @@ class SurrealDataset:
                 RChest, Chin, LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist, LHand, RHand
         """
         frames = np.array([frame for frame in get_frames_from_video(self.files[item])])
+        n_frames = 1 + self.frames_before + self.frames_after
         video_info = loadmat(self.targets[item])
         joints_2d = video_info["joints2D"] * 1.1  # to correspond to the image scaling
         joints_3d = video_info["joints3D"]
         # crop to power of two for better down/up sampling in hourglass
         frames, joints_2d = center_crop(frames, joints_2d, 256, 256)
-        cur = np.random.randint(self.frames_before, frames.shape[0] - self.frames_after)
+        cur = np.random.randint(self.frames_before, frames.shape[0] - self.frames_after - 1)
         # +1 at the end for 2 different set of video to train continuity constraint
         s = slice(cur - self.frames_before, cur + self.frames_after + 2)
         frames = frames[s]
+
         joints_2d = joints_2d[:, :, cur]
         # Normalize 2D positions
         joints_2d[0, :] = joints_2d[0, :] / frames.shape[2]
         joints_2d[1, :] = joints_2d[0, :] / frames.shape[3]
         joints_3d = joints_3d[:, :, cur]
+
         frames = frames.transpose((0, 3, 1, 2))
 
         return frames, joints_2d, joints_3d
