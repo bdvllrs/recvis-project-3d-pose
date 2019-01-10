@@ -98,7 +98,6 @@ class SurrealDataset:
                 RChest, Chin, LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist, LHand, RHand
         """
         frames = np.array([frame for frame in get_frames_from_video(self.files[item])])
-        n_frames = 1 + self.frames_before + self.frames_after
         video_info = loadmat(self.targets[item])
         joints_2d = video_info["joints2D"] * 1.1  # to correspond to the image scaling
         joints_3d = video_info["joints3D"]
