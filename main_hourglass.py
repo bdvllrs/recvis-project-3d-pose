@@ -2,7 +2,7 @@ import torch
 import torch.utils.data
 from utils.data import SurrealDataset
 from utils import Config
-from models import StackedHourGlass
+from models import VideoContinuitySHourglass
 from utils import StackedHourglassTrainer as Trainer
 import matplotlib.pyplot as plt
 
@@ -44,8 +44,8 @@ train_dataset = torch.utils.data.DataLoader(train_set, batch_size=config.batch_s
 
 n_frames = 1 + config_video_constraints.frames_before + config_video_constraints.frames_after
 
-model = StackedHourGlass(config.n_channels, config.n_stack, config.n_modules, config.n_reductions, config.n_joints,
-                         n_frames, return_heatmap=False)
+model = VideoContinuitySHourglass(config.n_channels, config.n_stack, config.n_modules, config.n_reductions,
+                                  config.n_joints, n_frames)
 model = model.to(device)
 
 optimizer = torch.optim.Adam(model.parameters())

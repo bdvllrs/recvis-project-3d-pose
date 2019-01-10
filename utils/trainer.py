@@ -405,8 +405,8 @@ class StackedHourglassTrainer(Trainer):
             # n_frames = 1 + self.frames_after + self.frames_before
             frames_1 = frames[:, :-1, :, :, :]
             frames_2 = frames[:, 1:, :, :, :]
-            frames_1 = frames_1.reshape(frames_1.size(0), -1, frames_1.size(3), frames_1.size(4))
-            frames_2 = frames_2.reshape(frames_2.size(0), -1, frames_2.size(3), frames_2.size(4))
+            # frames_1 = frames_1.reshape(frames_1.size(0), -1, frames_1.size(3), frames_1.size(4))
+            # frames_2 = frames_2.reshape(frames_2.size(0), -1, frames_2.size(3), frames_2.size(4))
             prediction_1 = self.model(frames_1)
             prediction_2 = self.model(frames_2)
             target = target.reshape(target.size(0), target.size(1) * target.size(2))

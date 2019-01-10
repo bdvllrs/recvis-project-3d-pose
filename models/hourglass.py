@@ -96,17 +96,15 @@ class Hourglass(nn.Module):
 class StackedHourGlass(nn.Module):
     """docstring for StackedHourGlass"""
 
-    def __init__(self, nChannels, nStack, nModules, numReductions, nJoints, n_frames=1, return_heatmap=True):
+    def __init__(self, nChannels, nStack, nModules, numReductions, nJoints):
         super(StackedHourGlass, self).__init__()
         self.nChannels = nChannels
         self.nStack = nStack
         self.nModules = nModules
         self.numReductions = numReductions
         self.nJoints = nJoints
-        self.return_heatmap = return_heatmap
-        self.n_frames = n_frames
 
-        self.start = M.BnReluConv(3 * n_frames, 64, kernelSize=7, stride=2, padding=3)
+        self.start = M.BnReluConv(3, 64, kernelSize=7, stride=2, padding=3)
 
         self.res1 = M.Residual(64, 128)
         self.mp = nn.MaxPool2d(2, 2)
@@ -134,12 +132,6 @@ class StackedHourGlass(nn.Module):
         self.lin2 = nn.ModuleList(_lin2)
         self.jointstochan = nn.ModuleList(_jointstochan)
 
-        if not return_heatmap:
-            self.fc = nn.Sequential(
-                nn.Linear(self.nJoints * 64 * 64, self.nJoints * 2),
-                nn.ReLU()
-            )
-
     def forward(self, x):
         x = self.start(x)
         x = self.res1(x)
@@ -156,8 +148,28 @@ class StackedHourGlass(nn.Module):
             x1 = self.lin2[i](x1)
             x = x + x1 + self.jointstochan[i](out[i])
 
-        if not self.return_heatmap:
-            out = out[-1].reshape(out[-1].size(0), -1)
-            out = self.fc(out)
-
         return out
+
+
+class VideoContinuitySHourglass(nn.Module):
+    def __init__(self, n_channels, n_stack, n_modules, num_reductions, n_joints, n_frames=1):
+        super(VideoContinuitySHourglass, self).__init__()
+        self.shg = StackedHourGlass(n_channels, n_stack, n_modules, num_reductions, n_joints)
+        self.n_frames = n_frames
+        self.n_joints = n_joints
+
+        self.fc = nn.Sequential(
+            nn.Linear(n_joints * 64 * 64 * n_frames, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, n_joints * 2),
+            nn.ReLU()
+        )
+
+    def forward(self, inputs):
+        out = torch.zeros(inputs.size(0), self.n_frames, self.n_joints, 64, 64)
+        for k in range(inputs.size(1)):
+            o = self.shg(inputs[:, k])[-1]
+            out[:, k] = o
+        out = out.view(out.size(0), -1)
+        return self.fc(out)
+
