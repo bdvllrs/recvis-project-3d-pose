@@ -166,7 +166,7 @@ class VideoContinuitySHourglass(nn.Module):
         )
 
     def forward(self, inputs):
-        out = torch.zeros(inputs.size(0), self.n_frames, self.n_joints, 64, 64)
+        out = torch.zeros(inputs.size(0), self.n_frames, self.n_joints, 64, 64).to(inputs.get_device())
         for k in range(inputs.size(1)):
             o = self.shg(inputs[:, k])[-1]
             out[:, k] = o
