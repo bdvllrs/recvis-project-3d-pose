@@ -182,7 +182,8 @@ def get_array(poses_2d, poses_3d, root_positions, camera_frame, for_video=False,
     action_to_keys = {}
     for key in sorted(poses_2d.keys()):
         subj, action, seqname = key
-        key3d = key if camera_frame else (subj, action, '{0}.h5'.format(seqname.split('.')[0]))
+        key_no_sh = (subj, action, seqname.replace('-sh', ''))
+        key3d = key_no_sh if camera_frame else (subj, action, '{0}.h5'.format(seqname.split('.')[0].replce('-sh', '')))
         for k in range(frames_before, poses_2d[key].shape[0] - frames_after - 1 * int(for_video)):
             input_poses = poses_2d[key][k]
             if for_video:
@@ -196,7 +197,7 @@ def get_array(poses_2d, poses_3d, root_positions, camera_frame, for_video=False,
                     input_poses.append(in_2d_poses)
             stack_poses.append(input_poses)
             stack_targets.append(poses_3d[key3d][k])
-            stack_root_positions.append(root_positions[key][k])
+            stack_root_positions.append(root_positions[key_no_sh][k])
             if action not in action_to_keys.keys():
                 action_to_keys[action] = []
             action_to_keys[action].append(len(stack_poses) - 1)
@@ -236,7 +237,8 @@ class Human36M:
         print("Loading 3D...")
         (output_train, output_test, self.data_mean_3d, self.data_std_3d, self.dim_to_ignore_3d, self.dim_to_use_3d,
          train_root_positions, test_root_positions) = self.get_3d(camera_frame=use_camera_frame)
-        self.train_set = HumanDataset(input_train, output_train, train_root_positions, use_camera_frame=use_camera_frame,
+        self.train_set = HumanDataset(input_train, output_train, train_root_positions,
+                                      use_camera_frame=use_camera_frame,
                                       video_constraints=video_constraints, frames_before=frames_before,
                                       frames_after=frames_after)
         self.test_set = HumanDataset(input_test, output_test, test_root_positions,

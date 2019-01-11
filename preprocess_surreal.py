@@ -29,10 +29,10 @@ model.eval()
 
 
 def save_dataset(group, data_set):
-    for k, (img, _, pose3d) in tqdm(enumerate(data_set)):
+    for k, (img, _, pose3d) in tqdm(enumerate(data_set), total=data_set.len):
         name = data_set.files[k].split('/')[-1].split('.')[0]
         poses = []
-        for i in range(0, img.shape[0], config.batch_size):
+        for i in range(10, 50, config.batch_size):
             img_torch = torch.tensor(img[i:i + config.batch_size]).to(device)
             poses.append(heatmat_to_2d_joints(model(img_torch)[-1].detach().cpu().numpy()))
         predicted_pose = np.vstack(poses).transpose((1, 2, 0))
@@ -45,11 +45,13 @@ with h5py.File(path_to_data, "w") as f:
     # train_group = f.create_group("train")
     # train_set = SurrealDataset(config_surreal.data_path, 'train', config_surreal.run)
     # save_dataset(train_group, train_set)
-    # print("Save test")
-    # test_group = f.create_group("test")
-    # test_set = SurrealDataset(config_surreal.data_path, 'test', config_surreal.run)
-    # save_dataset(test_group, test_set)
-    print("Save dev")
-    dev_group = f.create_group("dev")
-    dev_set = SurrealDataset(config_surreal.data_path, 'val', config_surreal.run)
-    save_dataset(dev_group, dev_set)
+    print("Save test")
+    test_group = f.create_group("test")
+    test_set = SurrealDataset(config_surreal.data_path, 'test', config_surreal.run)
+    test_set.len = 500
+    save_dataset(test_group, test_set)
+    # print("Save dev")
+    # dev_group = f.create_group("dev")
+    # dev_set = SurrealDataset(config_surreal.data_path, 'val', config_surreal.run)
+    # dev_set.len = 50
+    # save_dataset(dev_group, dev_set)

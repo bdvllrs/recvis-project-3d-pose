@@ -16,6 +16,7 @@ device = torch.device(device_type)
 
 dataset = Human36M('../dataset/h36m/', max_video_length=config.max_video_length,
                    video_constraints=config_video_constraints.use,
+                   use_hourglass=True,
                    frames_before=config_video_constraints.frames_before, frames_after=config_video_constraints.frames_after)
 
 train_set = torch.utils.data.DataLoader(dataset.train_set, batch_size=config.batch_size, shuffle=True)

@@ -32,10 +32,10 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     # Make connection matrix
     for i in np.arange(len(I)):
         x, y, z = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(3)]
-        z, y = -y, z
+        # z, y = -y, z
         ax.plot(x, y, z, lw=2, c=lcolor if LR[i] else rcolor)
 
-    RADIUS = 1  # space around the subject
+    RADIUS = 720  # space around the subject
     xroot, yroot, zroot = vals[0, 0], vals[0, 1], vals[0, 2]
     ax.set_xlim3d([-RADIUS + xroot, RADIUS + xroot])
     ax.set_zlim3d([-RADIUS + zroot, RADIUS + zroot])
