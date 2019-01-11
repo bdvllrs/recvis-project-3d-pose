@@ -522,8 +522,10 @@ class SurrealTrainer(Trainer):
             ax3 = plt.subplot(gs1[3 * k + 2], projection='3d')
             viz.show3Dpose(points_3d_target[k], ax3, lcolor="#9b59b6", rcolor="#2ecc71")
 
-        plt.draw()
-        plt.pause(0.0001)
+        plt.savefig(self.path + "/logs/poses_" + type + "_" + str(self.current_epoch) + ".eps", type="eps", dpi=1000)
+        if self.plot_logs:
+            plt.draw()
+            plt.pause(0.001)
 
     def forward(self, data, target):
         """
