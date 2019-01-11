@@ -198,7 +198,6 @@ class SurrealDataset:
                     self.files.append(video_path)
 
         self.len = len(self.files)
-        self.len = 4
 
     def __len__(self):
         return self.len
