@@ -23,7 +23,7 @@ hourglass: # For the training of the hourglass model
   pretrained_path: /path/to/pretrained/hourglass
   plot_logs: No
   n_epochs: 100
-  batch_size: 8
+  batch_size: 2
   n_channels: 256
   n_joints: 16
   n_stack: 2
