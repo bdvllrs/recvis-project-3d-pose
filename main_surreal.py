@@ -23,15 +23,12 @@ test_set, val_set, train_set = [], [], []
 print("Loading datasets...")
 if config.data_type == "surreal":
     test_set = SurrealDataset(config_surreal.data_path, 'test', config_surreal.run,
-                              video_training_output=True,
                               frames_before=config_video_constraints.frames_before,
                               frames_after=config_video_constraints.frames_after)
     val_set = SurrealDataset(config_surreal.data_path, 'val', config_surreal.run,
-                             video_training_output=True,
                              frames_before=config_video_constraints.frames_before,
                              frames_after=config_video_constraints.frames_after)
     train_set = SurrealDataset(config_surreal.data_path, 'train', config_surreal.run,
-                               video_training_output=True,
                                frames_before=config_video_constraints.frames_before,
                                frames_after=config_video_constraints.frames_after)
 

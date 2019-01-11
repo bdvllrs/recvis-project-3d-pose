@@ -4,16 +4,18 @@ import os
 from scipy.io import loadmat
 
 
-def get_frames_from_video(video_path, scale):
+def get_frames_from_video(video_path, scale, start_at_frame):
     """
     Get frame generator from video file path
     Args:
+        start_at_frame: index of first frame to get
         video_path: path of the video
         scale: scale the image
 
     Returns: generator of the frames
     """
     video = cv2.VideoCapture(video_path)
+    video.set(cv2.CAP_PROP_POS_FRAMES, start_at_frame + 1)
     has_next_frame, frame = video.read()
     while has_next_frame:
         # Rescale the image
@@ -180,6 +182,10 @@ class SurrealDataset:
         self.frames_before = frames_before
         self.frames_after = frames_after
         self.video_training_output = video_training_output
+        self.start_video_at_frame = None
+        self.end_video_at_frame = None
+        self.video_length = None
+        self.cur = None
 
         # path = os.path.abspath(path)
         root_path = os.path.join(path, dataset, data_type, run)
@@ -202,6 +208,11 @@ class SurrealDataset:
     def __len__(self):
         return self.len
 
+    def set_start_frame_between(self, frame_start, relative_frame_end):
+        self.start_video_at_frame = frame_start
+        self.end_video_at_frame = relative_frame_end
+        self.video_length = self.start_video_at_frame - self.end_video_at_frame + 1
+
     def __getitem__(self, item):
         """
         Frames are shape (T, width, height, 3)
@@ -223,11 +234,22 @@ class SurrealDataset:
                 11 RElbow, 12 RShoulder, 13 LShoulder, 14 LElbow, 15 LHand
         """
         scale = 1.1
-        frames = np.array([frame for frame in get_frames_from_video(self.files[item], scale=scale)]) / 255
         video_info = loadmat(self.targets[item])
         joints_2d = video_info["joints2D"] * scale  # to correspond to the image scaling
         joints_3d = video_info["joints3D"]
         camera_location = video_info["camLoc"]
+
+        start_at = 0
+        end_at = joints_2d.shape[2]
+
+        if self.start_video_at_frame is not None:
+            start_at = np.random.randint(self.start_video_at_frame, joints_2d.shape[2] + self.end_video_at_frame)
+            self.cur = start_at
+            end_at = start_at + self.video_length
+
+        frames = np.array([next(get_frames_from_video(self.files[item], scale=scale, start_at_frame=start_at)) for _ in
+                           range(end_at - start_at)])
+        frames /= 255
         T, R = get_camera_matrices(camera_location)
         joints_3d = to_camera_coordinate(joints_3d, T, R)
         joints_3d = get_joints_hourglass(align_3d_joints(joints_3d))
@@ -241,16 +263,17 @@ class SurrealDataset:
         joints_2d[1, :] = joints_2d[0, :] / frames.shape[3]
 
         frames = frames.transpose((0, 3, 1, 2))
+        if self.cur is not None:
+            joints_2d = joints_2d[:, :, self.cur]
+            joints_3d = joints_3d[:, :, self.cur]
 
         return frames, joints_2d, joints_3d
 
 
 class SurrealDatasetWithVideoContinuity:
-    def __init__(self, path, data_type, run, dataset="cmu", video_training_output=False, frames_before=0,
-                 frames_after=0):
+    def __init__(self, path, data_type, run, dataset="cmu", frames_before=0, frames_after=0):
         self.frames_before = frames_before
         self.frames_after = frames_after
-        self.video_training_output = video_training_output
         self.surreal = SurrealDataset(path, data_type, run, dataset)
 
     def __len__(self):
@@ -269,14 +292,6 @@ class SurrealDatasetWithVideoContinuity:
             - joints_2d has shape (2, 24)
             - joints_3d has shape (3, 24)
         """
+        self.surreal.set_start_frame_between(self.frames_before, -self.frames_after - 1)
         frames, joints_2d, joints_3d = self.surreal[item]
-
-        if self.video_training_output:
-            cur = np.random.randint(self.frames_before, frames.shape[0] - self.frames_after - 1)
-            # +1 at the end for 2 different set of video to train continuity constraint
-            s = slice(cur - self.frames_before, cur + self.frames_after + 2)
-            frames = frames[s]
-
-            joints_3d = joints_3d[:, :, cur]
-            joints_2d = joints_2d[:, :, cur]
         return frames, joints_2d, joints_3d
