@@ -441,7 +441,7 @@ class SurrealTrainer(Trainer):
                 frames, _, joints_3d = data
                 frames, joints_3d = frames.to(self.device, torch.float), joints_3d.to(self.device, torch.float)
                 predicted_2d_joints = torch.zeros(frames.size(0), 2,
-                                                  16, frames.size(1))  # batch x 2 x 16 x T
+                                                  16, frames.size(1)).to(self.device)  # batch x 2 x 16 x T
                 for l in range(frames.size(1)):
                     predicted = heatmat_to_2d_joints(self.hg_model(frames[:, l])[-1].detach().cpu().numpy())
                     predicted_2d_joints[:, :, :, l] = torch.tensor(predicted).to(self.device)
