@@ -1,10 +1,9 @@
 import torch
 import torch.utils.data
-from utils.data import SurrealDataset
+from utils.data import SurrealDatasetWithVideoContinuity as SurrealDataset
 from utils import Config
-from models import Resnet2DModel
-from utils import StackedHourglassTrainer as Trainer
-import matplotlib.pyplot as plt
+from models import StackedHourGlass, Linear
+from utils import SurrealTrainer as Trainer
 
 config = Config('./config')
 
@@ -14,24 +13,19 @@ print("Using", device_type)
 
 config_video_constraints = config.video_constraints
 config_surreal = config.surreal
+
 config = config.hourglass
 device = torch.device(device_type)
 
 test_set, val_set, train_set = [], [], []
 
+# Load dataset
+print("Loading datasets...")
 if config.data_type == "surreal":
     test_set = SurrealDataset(config_surreal.data_path, 'test', config_surreal.run,
                               video_training_output=True,
                               frames_before=config_video_constraints.frames_before,
                               frames_after=config_video_constraints.frames_after)
-    # frame, joints, _ = test_set[0]
-    # frame = frame[0].transpose((1, 2, 0))
-    # plt.imshow(frame)
-    # for k in range(joints.shape[1]):
-    #     circle = plt.Circle((joints[0, k], joints[1, k]), radius=1, color='red')
-    #     plt.gcf().gca().add_artist(circle)
-    # plt.show()
-    # print(frame.shape)
     val_set = SurrealDataset(config_surreal.data_path, 'val', config_surreal.run,
                              video_training_output=True,
                              frames_before=config_video_constraints.frames_before,
@@ -41,23 +35,35 @@ if config.data_type == "surreal":
                                frames_before=config_video_constraints.frames_before,
                                frames_after=config_video_constraints.frames_after)
 
-
+# Define Torch dataset
 test_dataset = torch.utils.data.DataLoader(test_set, batch_size=config.batch_size, shuffle=False)
 val_dataset = torch.utils.data.DataLoader(val_set, batch_size=config.batch_size, shuffle=False)
 train_dataset = torch.utils.data.DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
+print("Loaded.")
 
-n_frames = 1 + config_video_constraints.frames_before + config_video_constraints.frames_after
+print("Loading models...")
+# Load pretrained model of stacked hourglass for 2D pose estimation
+hg_model = StackedHourGlass(config.n_channels, config.n_stack, config.n_modules, config.n_reductions,
+                            config.n_joints)
+hg_model.to(device)
+hg_model.load_state_dict(torch.load(config.pretrained_path, map_location=device)['model_state'])
+hg_model.eval()
 
-model = Resnet2DModel(config_surreal.n_joints, n_frames)
-model = model.to(device)
+number_frames = config_video_constraints.frames_before + config_video_constraints.frames_after + 1
+model = Linear(input_size=2 * config.n_joints * number_frames, hidden_size=1024,
+               output_size=48).to(device)
+print("Loaded.")
 
 optimizer = torch.optim.Adam(model.parameters())
 
-trainer = Trainer(train_dataset, test_dataset, optimizer, model,
-                  save_folder='builds/hourglass', plot_logs=config.plot_logs,
+trainer = Trainer(train_dataset, test_dataset, optimizer, model, hg_model,
+                  save_folder='builds', plot_logs=config.plot_logs,
                   video_constraints=config_video_constraints.use,
                   frames_before=config_video_constraints.frames_before,
                   frames_after=config_video_constraints.frames_after,
                   regularization_video_constraints=config_video_constraints.regularization).to(device)
 
 trainer.train(config.n_epochs)
+
+# trainer.load('./builds/2019-01-03 15:28:25')
+# trainer.val()

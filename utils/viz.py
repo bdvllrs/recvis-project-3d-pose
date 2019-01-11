@@ -28,13 +28,14 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     I = np.array([1, 2, 3, 1, 7, 8, 1, 13, 14, 15, 14, 18, 19, 14, 26, 27]) - 1  # start points
     J = np.array([2, 3, 4, 7, 8, 9, 13, 14, 15, 16, 18, 19, 20, 26, 27, 28]) - 1  # end points
     LR = np.array([1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
-
+    plt.show()
     # Make connection matrix
     for i in np.arange(len(I)):
         x, y, z = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(3)]
+        z, y = -y, z
         ax.plot(x, y, z, lw=2, c=lcolor if LR[i] else rcolor)
 
-    RADIUS = 750  # space around the subject
+    RADIUS = 1  # space around the subject
     xroot, yroot, zroot = vals[0, 0], vals[0, 1], vals[0, 2]
     ax.set_xlim3d([-RADIUS + xroot, RADIUS + xroot])
     ax.set_zlim3d([-RADIUS + zroot, RADIUS + zroot])

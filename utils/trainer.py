@@ -6,11 +6,14 @@ from utils import data
 from utils import cameras
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import pickle
 
 import torch
 
-__all__ = ['Trainer', 'StackedHourglassTrainer']
+from utils.data import get_order_joint_human, heatmat_to_2d_joints
+
+__all__ = ['Trainer', 'StackedHourglassTrainer', 'SurrealTrainer']
 
 
 def lr_decay(optimizer, step, lr, decay_step, gamma):
@@ -44,6 +47,7 @@ class Trainer:
         self.device = torch.device("cpu")
         self.human_dataset = human_dataset
         self.criterion = torch.nn.MSELoss(reduction='elementwise_mean')
+        self.config = config
 
         self.video_constraints = video_constraints
         self.frames_after = frames_after
@@ -256,7 +260,6 @@ class Trainer:
         """
 
         # Visualize random samples
-        import matplotlib.gridspec as gridspec
 
         # 1080p	= 1,920 x 1,080
         fig = plt.figure(1 if type == "train" else 2, figsize=(19.2, 10.8))
@@ -413,3 +416,125 @@ class StackedHourglassTrainer(Trainer):
             loss = (self.criterion(prediction_1, target) +
                     self.regularization_video_constraints * self.criterion(prediction_1, prediction_2))
             return loss, prediction_1
+
+
+class SurrealTrainer(Trainer):
+    def __init__(self, train_loader, val_loader, optimizer, model, hg_model, log_every: int = 50,
+                 save_folder: str = None, plot_logs=True, video_constraints=False, frames_before=0, frames_after=0,
+                 regularization_video_constraints=0.0001, config=None):
+        super(SurrealTrainer, self).__init__(train_loader, val_loader, optimizer, model, None, log_every,
+                                             save_folder, plot_logs, video_constraints, frames_before, frames_after,
+                                             regularization_video_constraints, config)
+        self.hg_model = hg_model
+
+    def step(self, loader, epoch, type):
+        total_loss = 0
+        batch_size = loader.batch_size
+        sample = np.arange(len(loader.dataset))
+        np.random.shuffle(sample)
+        sample = sample[:15]
+        k = 0
+        loss_mm_mean = []
+        viz_frames, viz_3d_output, viz_3d_target = [], [], []
+        with tqdm(total=len(loader.dataset) / loader.batch_size) as t:
+            for batch_id, data in enumerate(loader):
+                frames, _, joints_3d = data
+                frames, joints_3d = frames.to(self.device, torch.float), joints_3d.to(self.device, torch.float)
+                predicted_2d_joints = torch.zeros(frames.size(0), 2,
+                                                  16, frames.size(1))  # batch x 2 x 16 x T
+                for l in range(frames.size(1)):
+                    predicted = heatmat_to_2d_joints(self.hg_model(frames[:, l])[-1].detach().cpu().numpy())
+                    predicted_2d_joints[:, :, :, l] = torch.tensor(predicted).to(self.device)
+                if type == "train":
+                    self.optimizer.zero_grad()
+                    loss, out = self.forward(predicted_2d_joints, joints_3d)
+                    loss.backward()
+                    # Clip grad
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                    self.optimizer.step()
+                    if batch_id % self.log_every == 0:
+                        t.set_description("Train - Epoch " + str(epoch))
+                        t.set_postfix_str("Loss: {0:.4f}".format(loss.data.item()))
+                else:
+                    loss, out = self.forward(predicted_2d_joints, joints_3d)
+                    # loss_mm = self.compute_mm_loss(out.detach().cpu().numpy(), joints_3d.detach().cpu().numpy())
+                    # loss_mm_mean.append(loss_mm)
+                for i in range(loader.batch_size):
+                    if k in sample:
+                        viz_frames.append(frames[i, 0].detach().cpu().numpy())
+                        viz_3d_output.append(out[i].detach().cpu().numpy())
+                        viz_3d_target.append(joints_3d[i].detach().cpu().numpy())
+                    k += 1
+                total_loss += loss.data.item()
+                # get the index of the max log-probability
+                if batch_id % self.log_every == 0:
+                    text = "Val - Epoch" if type == "val" else "Train - Epoch"
+                    t.set_description(text + str(epoch))
+                    t.set_postfix_str("Loss: {0:.4f}".format(loss.data.item()))
+                t.update()
+
+            total_loss /= len(loader.dataset) / batch_size
+            self.logs["testing_error" if type == "val" else "training_error"].append(total_loss)
+            if type == "val":
+                self.logs["loss_mm"].append(np.mean(loss_mm_mean))
+                print('\nValidation set: Average loss:', total_loss, 'mm', self.logs["loss_mm"][-1], '\n')
+                # print('\nValidation set: Average loss:', total_loss, '\n')
+            else:
+                print('\nTraining set: Average loss:', total_loss, '\n')
+
+            viz_samples_frames = np.array(viz_frames)
+            viz_samples_pred = np.array(viz_3d_output)
+            viz_samples_true = np.array(viz_3d_target)
+
+            self.visualize(viz_samples_frames, viz_samples_pred, viz_samples_true, type)
+            self.plot_learning_curves()
+
+    def visualize(self, frames, pred, target, type):
+        """
+        Args:
+            frames: batch x 3 x width x height
+            pred: batch x 3*16
+            target: batch x 3 x 16
+            type:
+        Returns:
+
+        """
+        img = frames.transpose((0, 2, 3, 1))  # batch x width x height x 3
+        pred = pred.reshape(pred.shape[0], 16, 3).transpose((0, 2, 1))  # batch x 3 x 24
+        points_3d_pred = np.array(
+            [get_order_joint_human(pred[k]).transpose((1, 0)) for k in range(pred.shape[0])]).reshape(pred.shape[0], -1)
+        points_3d_target = np.array(
+            [get_order_joint_human(target[k]).transpose((1, 0)) for k in range(target.shape[0])]).reshape(
+            target.shape[0], -1)
+
+        fig = plt.figure(4)
+
+        gs1 = gridspec.GridSpec(points_3d_pred.shape[0], 3)  # 5 rows, 9 columns
+        gs1.update(wspace=-0.00, hspace=0.05)  # set the spacing between axes.
+        plt.axis('off')
+        for k in range(points_3d_pred.shape[0]):
+            ax1 = plt.subplot(gs1[3 * k])
+            ax1.imshow(img[k])
+
+            ax2 = plt.subplot(gs1[3 * k + 1], projection='3d')
+            viz.show3Dpose(points_3d_pred[k], ax2, lcolor="#9b59b6", rcolor="#2ecc71")
+
+            ax3 = plt.subplot(gs1[3 * k + 2], projection='3d')
+            viz.show3Dpose(points_3d_target[k], ax3, lcolor="#9b59b6", rcolor="#2ecc71")
+
+        plt.draw()
+        plt.pause(0.0001)
+
+    def forward(self, data, target):
+        """
+        Args:
+            data: (batch_size, 2, 16, T)
+            target: (batch_size, 3, 32)
+        """
+        data_in_1 = data[:, :, :, :-1].permute(0, 3, 2, 1)
+        data_in_2 = data[:, :, :, 1:].permute(0, 3, 2, 1)
+        target = target.permute(0, 2, 1).reshape(target.size(0), -1)
+        out = self.model(data_in_1.reshape(data.size(0), -1))
+        out_2 = self.model(data_in_2.reshape(data.size(0), -1))
+        loss = self.criterion(out, target) + self.regularization_video_constraints * self.criterion(out, out_2)
+        return loss, out

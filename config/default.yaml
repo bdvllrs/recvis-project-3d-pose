@@ -1,6 +1,11 @@
 # Make a new file with different values to override the defaults.
 device_type: cuda
 
+surreal:
+  n_joints: 24
+  data_path: /path/to/surreal/SURREAL/data
+  run: run0
+
 video_constraints: # Use continuity constraints in videos
   use: Yes
   regularization: 0.0001
@@ -14,14 +19,13 @@ main: # For the main.py file. Config for the Martinez et al. approach.
   max_video_length: -1 # Maximum length of the video to consider. -1 for all video
 
 hourglass: # For the training of the hourglass model
-  data_path: /path/to/surreal/SURREAL/data
   data_type: surreal
+  pretrained_path: /path/to/pretrained/hourglass
   plot_logs: No
   n_epochs: 100
-  n_joints: 24
-  run: run0
-  batch_size: 16
+  batch_size: 8
   n_channels: 256
+  n_joints: 16
   n_stack: 2
   n_modules: 2
   n_reductions: 4

@@ -13,7 +13,7 @@ class ImageSequence:
         root_path = os.path.abspath(os.path.join(os.curdir, path))
 
         self.frames = []
-        for frame in os.listdir(root_path):
+        for frame in sorted(os.listdir(root_path)):
             self.frames.append(os.path.join(root_path, frame))
 
         self.input_res = 256
