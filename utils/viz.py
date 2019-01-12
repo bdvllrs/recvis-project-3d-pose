@@ -35,7 +35,7 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
         # z, y = -y, z
         ax.plot(x, y, z, lw=2, c=lcolor if LR[i] else rcolor)
 
-    RADIUS = 720  # space around the subject
+    RADIUS = 1  # space around the subject
     xroot, yroot, zroot = vals[0, 0], vals[0, 1], vals[0, 2]
     ax.set_xlim3d([-RADIUS + xroot, RADIUS + xroot])
     ax.set_zlim3d([-RADIUS + zroot, RADIUS + zroot])
@@ -101,7 +101,7 @@ def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     ax.get_xaxis().set_ticklabels([])
     ax.get_yaxis().set_ticklabels([])
 
-    RADIUS = 350  # space around the subject
+    RADIUS = 1  # space around the subject
     xroot, yroot = vals[0, 0], vals[0, 1]
     ax.set_xlim([-RADIUS + xroot, RADIUS + xroot])
     ax.set_ylim([-RADIUS + yroot, RADIUS + yroot])

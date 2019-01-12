@@ -13,24 +13,24 @@ def update_config(conf, new_conf):
 
 class Config:
     def __init__(self, path=None, config=None):
-        self.is_none = False
-        self.data = config if config is not None else {}
+        self.__is_none = False
+        self.__data = config if config is not None else {}
         if path is not None:
-            self.path = os.path.abspath(os.path.join(os.curdir, path))
-            with open(os.path.join(self.path, "default.yaml"), "rb") as default_config:
-                self.data.update(yaml.load(default_config))
-            for config in sorted(os.listdir(self.path)):
+            self.__path = os.path.abspath(os.path.join(os.curdir, path))
+            with open(os.path.join(self.__path, "default.yaml"), "rb") as default_config:
+                self.__data.update(yaml.load(default_config))
+            for config in sorted(os.listdir(self.__path)):
                 if config != "defaulf.yaml" and config[-4:] in ["yaml", "yml"]:
-                    with open(os.path.join(self.path, config), "rb") as config_file:
-                        self.data = update_config(self.data, yaml.load(config_file))
+                    with open(os.path.join(self.__path, config), "rb") as config_file:
+                        self.__data = update_config(self.__data, yaml.load(config_file))
 
     def set(self, key, value):
-        self.data[key] = value
+        self.__data[key] = value
 
     def __getattr__(self, item):
-        if type(self.data[item]) == dict:
-            return Config(config=self.data[item])
-        return self.data[item]
+        if type(self.__data[item]) == dict:
+            return Config(config=self.__data[item])
+        return self.__data[item]
 
     def __getitem__(self, item):
-        return self.data[item]
+        return self.__data[item]

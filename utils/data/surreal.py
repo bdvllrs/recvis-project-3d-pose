@@ -55,7 +55,7 @@ def get_order_joint_human(joints):
     new_order_joints = np.zeros((joints.shape[0], 32))
     # actual index: position in surreal, index = position in human
     # permutation = [0, 6, 1, 12, 7, 2, 4, 8, 3, 13, 5, 9, 14, 10, 11, 15, 17, 25, 18, 26, 19, 27, 16, 20]
-    permutation = [3, 2, 1, 7, 8, 0, 12, 13, 15, 27, 26, 25, 17, 18, 19]
+    permutation = [3, 2, 1, 6, 7, 8, 0, 12, 13, 15, 27, 26, 25, 17, 18, 19]
     for k, i in enumerate(permutation):
         new_order_joints[:, i] = joints[:, k]
     return new_order_joints

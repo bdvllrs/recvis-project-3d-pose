@@ -517,6 +517,7 @@ class SurrealTrainer(Trainer):
             ax1.imshow(img[k])
 
             ax2 = plt.subplot(gs1[3 * k + 1], projection='3d')
+            # TODO: bug here, dimension should be expanded to 32*3
             viz.show3Dpose(points_3d_pred[k], ax2, lcolor="#9b59b6", rcolor="#2ecc71")
 
             ax3 = plt.subplot(gs1[3 * k + 2], projection='3d')

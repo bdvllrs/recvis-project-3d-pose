@@ -29,3 +29,16 @@ hourglass: # For the training of the hourglass model
   n_stack: 2
   n_modules: 2
   n_reductions: 4
+
+eval:  # For the evaluation file
+  data:
+    # type among
+    # - sequence: sequence of images in a folder
+    # - human: use the preprocessed human dataset
+    type: sequence
+    path: /path/to/data
+    subject: 1 # If human, which subject to get
+    action: Phoning  # If human, which action to use
+  use_video_continuity: No
+  batch_size: 2
+  linear_model: /path/to/trained/model
