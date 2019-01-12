@@ -93,6 +93,9 @@ class Trainer:
             self.logs = pickle.load(file)
 
     def step_train(self, epoch):
+        self.glob_step += 1
+        if self.glob_step % self.lr_decay == 0 or self.glob_step == 1:
+            self.lr_now = lr_decay(self.optimizer, self.glob_step, self.lr_now, self.lr_decay, self.lr_gamma)
         self.model.train()
         self.step(self.train_loader, epoch, "train")
 
