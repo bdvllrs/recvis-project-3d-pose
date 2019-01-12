@@ -169,5 +169,6 @@ def project_to_cameras(poses_set, cams, joint_names, ncams=4):
 
             pts2d = np.reshape(pts2d, [-1, len(joint_names) * 2])
             sname = seqname[:-3] + "." + name + ".h5"  # e.g.: Waiting 1.58860488.h5
+            print(sname)
             t2d[(subj, a, sname)] = pts2d
     return t2d

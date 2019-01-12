@@ -183,7 +183,7 @@ def get_array(poses_2d, poses_3d, root_positions, camera_frame, for_video=False,
     for key in sorted(poses_2d.keys()):
         subj, action, seqname = key
         key_no_sh = (subj, action, seqname.replace('-sh', ''))
-        key3d = key_no_sh if camera_frame else (subj, action, '{0}.h5'.format(seqname.split('.')[0].replce('-sh', '')))
+        key3d = key_no_sh if camera_frame else (subj, action, '{0}.h5'.format(seqname.split('.')[0].replace('-sh', '')))
         max_frame = min(poses_2d[key].shape[0], poses_3d[key3d].shape[0])
         for k in range(frames_before, max_frame - frames_after - 1 * int(for_video)):
             input_poses = poses_2d[key][k]

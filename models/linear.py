@@ -49,7 +49,7 @@ class Linear(torch.nn.Module):
             torch.nn.BatchNorm1d(hidden_size),
             *linear_blocks,
             out_fc,
-            torch.nn.Dropout(dropout),
+            # torch.nn.Dropout(dropout),
             # torch.nn.ReLU()
         )
 

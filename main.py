@@ -25,7 +25,7 @@ test_set = torch.utils.data.DataLoader(dataset.test_set, batch_size=config.batch
 number_frames = 1
 if config_video_constraints.use:
     number_frames += config_video_constraints.frames_before + config_video_constraints.frames_after
-model = Linear(input_size=32 * number_frames, hidden_size=1024, output_size=48).to(device)
+model = Linear(input_size=32 * number_frames, hidden_size=1024, output_size=48, num_lin_block=3).to(device)
 
 optimizer = torch.optim.Adam(model.parameters())
 
