@@ -41,6 +41,7 @@ if config.eval.use_video_continuity:
     number_frames = config_video_constraints.frames_before + config_video_constraints.frames_after + 1
 model = Linear(input_size=32 * number_frames, hidden_size=1024, output_size=48).to(device)
 model.load_state_dict(torch.load(pretrained_path_linear, map_location=device))
+model.eval()
 model.to(device)
 
 if config.eval.data.type == "sequence":
