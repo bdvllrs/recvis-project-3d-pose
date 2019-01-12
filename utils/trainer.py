@@ -217,9 +217,11 @@ class Trainer:
         target = self.unormalize_3d_data(target)
         prediction = self.unormalize_3d_data(prediction)
         loss = (target - prediction) ** 2
-        distances = np.zeros((loss.shape[0], loss.shape[1] // 3))
+        distances = []
         for index, k in enumerate(range(0, loss.shape[1] // 3, 3)):
-            distances[:, index] = np.sqrt(loss[:, k:k + 3].sum(axis=1))
+            if k not in self.human_dataset.dim_to_ignore_3d:
+                distances.append(np.sqrt(loss[:, k:k + 3].sum(axis=1)))
+        distances = np.stack(distances, axis=0).ravel()
         return distances.mean()
 
     def plot_learning_curves(self):
