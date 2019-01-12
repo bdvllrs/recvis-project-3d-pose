@@ -20,7 +20,7 @@ class ImageSequence:
         self.output_res = 32
         self.n_joints = 16
         self.len = len(self.frames)
-        self.len = 10
+        # self.len = 10
 
     def __len__(self):
         return self.len

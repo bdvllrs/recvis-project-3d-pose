@@ -39,6 +39,9 @@ eval:  # For the evaluation file
     path: /path/to/data
     subject: 1 # If human, which subject to get
     action: Phoning  # If human, which action to use
-  use_video_continuity: No
+  video_constraints:
+    use: No
+    frames_before: 0
+    frames_after: 0
   batch_size: 2
   linear_model: /path/to/trained/model

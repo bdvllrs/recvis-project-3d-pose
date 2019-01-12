@@ -8,7 +8,7 @@ import os
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False):  # blue, orange
+def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False, radius=None):  # blue, orange
     """
     Visualize a 3d skeleton
     Args
@@ -32,9 +32,10 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     # Make connection matrix
     for i in np.arange(len(I)):
         x, y, z = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(3)]
-        # z, y = -y, z
+        z, y = -y, z
         ax.plot(x, y, z, lw=2, c=lcolor if LR[i] else rcolor)
 
+    # RADIUS = radius if radius is not None else 750  # space around the subject
     RADIUS = 750  # space around the subject
     xroot, yroot, zroot = vals[0, 0], vals[0, 1], vals[0, 2]
     ax.set_xlim3d([-RADIUS + xroot, RADIUS + xroot])
@@ -68,7 +69,7 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     ax.w_zaxis.line.set_color(white)
 
 
-def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False):
+def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False, radius=None):
     """
     Visualize a 2d skeleton
     Args
@@ -91,6 +92,7 @@ def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     # Make connection matrix
     for i in np.arange(len(I)):
         x, y = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(2)]
+        y = -y
         ax.plot(x, y, lw=2, c=lcolor if LR[i] else rcolor)
 
     # Get rid of the ticks
@@ -101,8 +103,9 @@ def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     ax.get_xaxis().set_ticklabels([])
     ax.get_yaxis().set_ticklabels([])
 
-    RADIUS = 350  # space around the subject
+    RADIUS = radius if radius is not None else 350  # space around the subject
     xroot, yroot = vals[0, 0], vals[0, 1]
+    yroot = -yroot
     ax.set_xlim([-RADIUS + xroot, RADIUS + xroot])
     ax.set_ylim([-RADIUS + yroot, RADIUS + yroot])
     if add_labels:
@@ -126,4 +129,4 @@ def play_2d_video(poses, ax):
         ax.invert_yaxis()
         subplot_idx = subplot_idx + 3
         plt.draw()
-        plt.pause(1/25)
+        plt.pause(1 / 25)

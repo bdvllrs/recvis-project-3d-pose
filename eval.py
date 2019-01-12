@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.gridspec as gridspec
 import utils.viz as viz
 from utils.eval import *
+from matplotlib.animation import FuncAnimation
 
 plt.ion()
 
@@ -37,9 +38,9 @@ hg_model.eval()
 
 # 3D predictor
 number_frames = 1
-if config.eval.use_video_continuity:
-    number_frames = config_video_constraints.frames_before + config_video_constraints.frames_after + 1
-model = Linear(input_size=32 * number_frames, hidden_size=1024, output_size=48).to(device)
+if config.eval.video_constraints.use:
+    number_frames = config.eval.video_constraints.frames_before + config.eval.video_constraints.frames_after + 1
+model = Linear(input_size=32 * number_frames, hidden_size=1024, output_size=48, num_lin_block=3).to(device)
 model.load_state_dict(torch.load(pretrained_path_linear, map_location=device))
 model.eval()
 model.to(device)
@@ -48,7 +49,11 @@ if config.eval.data.type == "sequence":
     sequence = torch.utils.data.DataLoader(ImageSequence(config.eval.data.path), batch_size=config.eval.batch_size,
                                            shuffle=False)
 elif config.eval.data.type == "human":
-    human_dataset = Human36M(config.eval.data.path, test_subjects=[config.eval.data.subject], actions=[config.eval.data.action])
+    human_dataset = Human36M(config.eval.data.path,
+                             use_hourglass=True,
+                             video_constraints=config.eval.video_constraints.use,
+                             frames_before=config.eval.video_constraints.frames_before, frames_after=config.eval.video_constraints.frames_after,
+                             test_subjects=[config.eval.data.subject], actions=[config.eval.data.action])
     sequence = torch.utils.data.DataLoader(human_dataset.test_set, batch_size=config.eval.batch_size, shuffle=False)
 else:
     raise ValueError(config.eval.data.type + " type does not exist.")
@@ -58,10 +63,9 @@ joints_2d = []
 joints_3d = []
 for batch in tqdm(sequence):  # size batch x 3 x 256 x 256
     if config.eval.data.type == "sequence":
-        get_data_sequence(batch, device, hg_model, model, images, joints_2d, joints_3d)
+        get_data_sequence(batch, device, hg_model, model, images, joints_2d, joints_3d, config)
     elif config.eval.data.type == "human":
-        get_data_human(batch, device, human_dataset, model, images, joints_2d, joints_3d)
-
+        get_data_human(batch, device, human_dataset, model, images, joints_2d, joints_3d, config)
 
 if len(images) > 0:
     images = np.vstack(images)
@@ -73,20 +77,33 @@ joints_3d = np.vstack(joints_3d)  # shape batch x 32 * 3
 18 LShoulder, 19 LELBOX, 20 -1, 21 -1, 22 -1, 23 -1, 24 -1, 25 RELBOW, 26 RHAND, 27 TOP HEAD, 28 -1, 29 -1, 30 -1, 31 -1
 """
 
-for t in range(5, joints_2d.shape[0]):
-    gs1 = gridspec.GridSpec(1, 3)
-    gs1.update(wspace=-0.00, hspace=0.05)  # set the spacing between axes.
-    plt.axis('off')
+grid_dim = 3 if config.eval.data.type in ['sequence'] else 2
+radius = 1 if config.eval.data.type in ['sequence'] else None
+gs1 = gridspec.GridSpec(1, grid_dim)
+gs1.update(wspace=-0.00, hspace=0.05)  # set the spacing between axes.
+# plt.axis('off')
+fig = plt.gcf()
 
+
+def update(t):
+    plt.clf()
     if len(images) > 0:
-        ax1 = plt.subplot(gs1[0])
+        ax1 = plt.subplot(gs1[2])
         ax1.imshow(images[t].transpose((1, 2, 0)))
 
-    ax2 = plt.subplot(gs1[1])
-    viz.show2Dpose(joints_2d[t], ax2)
+    ax2 = plt.subplot(gs1[0])
+    viz.show2Dpose(joints_2d[t], ax2, radius=radius)
 
-    ax3 = plt.subplot(gs1[2], projection='3d')
-    viz.show3Dpose(joints_3d[t], ax3, lcolor="#9b59b6", rcolor="#2ecc71")
+    ax3 = plt.subplot(gs1[1], projection='3d')
+    viz.show3Dpose(joints_3d[t], ax3, lcolor="#9b59b6", rcolor="#2ecc71", radius=radius)
 
+
+# print('Save gif...')
+# anim = FuncAnimation(fig, update, frames=np.arange(0, 120), interval=200)
+# anim.save('figs/sh-sequence.gif', dpi=100, writer='imagemagick')
+# print("Saved.")
+
+for t in range(0, joints_2d.shape[0]):
+    update(t)
     plt.draw()
-    plt.pause(20)
+    plt.pause(0.0001)
