@@ -99,8 +99,8 @@ def update(t):
 
 
 # print('Save gif...')
-# anim = FuncAnimation(fig, update, frames=np.arange(0, 120), interval=200)
-# anim.save('figs/sh-sequence.gif', dpi=100, writer='imagemagick')
+# anim = FuncAnimation(fig, update, frames=np.arange(0, 250), interval=200)
+# anim.save('figs/sh-video-hm-2.gif', dpi=100, writer='imagemagick')
 # print("Saved.")
 
 for t in range(0, joints_2d.shape[0]):

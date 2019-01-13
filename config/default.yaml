@@ -37,8 +37,8 @@ eval:  # For the evaluation file
     # - human: use the preprocessed human dataset
     type: sequence
     path: /path/to/data
-    subject: 1 # If human, which subject to get
-    action: Phoning  # If human, which action to use
+    subject: 9 # If human, which subject to get
+    action: Greeting  # If human, which action to use
   video_constraints:
     use: No
     frames_before: 0

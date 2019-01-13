@@ -41,8 +41,11 @@ def get_data_sequence(batch, device, hg_model, model, images, joints_2d, joints_
 
 def get_data_human(batch, device, human_dataset, model, images, joints_2d, joints_3d, conf):
     data_2d, data_3d, root_position, keys = batch
-    data_2d_cur = data_2d[:, 0, conf.eval.video_constraints.frames_before]
-    data_2d = data_2d[:, 0].reshape(data_2d.size(0), -1)
+    if conf.eval.video_constraints.use:
+        data_2d_cur = data_2d[:, 0, conf.eval.video_constraints.frames_before]
+        data_2d = data_2d[:, 0].reshape(data_2d.size(0), -1)
+    else:
+        data_2d_cur = data_2d
     predicted_3d = model(data_2d.to(device, torch.float)).detach().cpu().numpy()
     data_2d_un = un_normalize_data(data_2d_cur, human_dataset.data_mean_2d,
                                    human_dataset.data_std_2d, human_dataset.dim_to_ignore_2d)
